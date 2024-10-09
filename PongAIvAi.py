@@ -335,22 +335,24 @@ def game_loop(screen, paddles, ball, table_size, clock_rate, turn_wait_rate, sco
     print(score)
     # return
 
-
-def init_game():
-    table_size = (440, 280)
-    paddle_size = (10, 70)
-    ball_size = (15, 15)
-    paddle_speed = 1
-    max_angle = 45
-
-    paddle_bounce = 1.2
-    wall_bounce = 1.00
-    dust_error = 0.00
-    init_speed_mag = 2
-    timeout = 0.0003
-    clock_rate = 80
-    turn_wait_rate = 3
-    score_to_win = 5
+import chaser_ai
+def init_game(
+    table_size: tuple[int,int] = (440, 280),
+    paddle_size: tuple[int,int]= (10, 70),
+    ball_size: tuple[int,int] = (15, 15),
+    paddle_speed: int = 1,
+    max_angle: float = 45,
+    paddle_bounce: float = 1.2,
+    wall_bounce: float = 1.00,
+    dust_error: float = 0.00,
+    init_speed_mag: float = 2.00,
+    timeout: float = 0.0003,
+    clock_rate: int = 80,
+    turn_wait_rate: int = 3,
+    score_to_win: int = 5,
+    player1 = directions_from_input,
+    player2 = chaser_ai.pong_ai
+):
 
     screen = pygame.display.set_mode(table_size)
     pygame.display.set_caption('PongAIvAI')
@@ -359,10 +361,10 @@ def init_game():
                Paddle((table_size[0] - 20, table_size[1] / 2), paddle_size, paddle_speed, max_angle, 0, timeout)]
     ball = Ball(table_size, ball_size, paddle_bounce, wall_bounce, dust_error, init_speed_mag)
 
-    import chaser_ai
 
-    paddles[0].move_getter = chaser_ai.pong_ai
-    paddles[1].move_getter = directions_from_input  # chaser_ai.pong_ai
+
+    paddles[0].move_getter = player1
+    paddles[1].move_getter = player2
 
     game_loop(screen, paddles, ball, table_size, clock_rate, turn_wait_rate, score_to_win, 1)
     ball = Ball(table_size, ball_size, paddle_bounce, wall_bounce, dust_error, init_speed_mag)
@@ -381,4 +383,4 @@ def init_game():
 
 if __name__ == '__main__':
     pygame.init()
-    init_game()
+    init_game(player1=chaser_ai.pong_ai, player2=chaser_ai.pong_ai)
