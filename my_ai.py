@@ -1,4 +1,4 @@
-def pong_ai(paddle_frect, other_paddle_frect, ball_frect, table_size):
+def pong_zai(paddle_frect, other_paddle_frect, ball_frect, table_size):
     """
     return "up" or "down", depending on which way the paddle should go to
     :param paddle_frect: a rectangle representing the coordinates of the paddle

@@ -310,7 +310,7 @@ def game_loop(screen, paddles, ball, table_size, clock_rate, turn_wait_rate, sco
             pygame.display.flip()
             clock.tick(turn_wait_rate)
 
-        render(screen, paddles, ball, score, table_size)
+        # render(screen, paddles, ball, score, table_size)
 
         pygame.event.pump()
         keys = pygame.key.get_pressed()
@@ -384,3 +384,5 @@ def init_game(
 if __name__ == '__main__':
     pygame.init()
     init_game(player1=chaser_ai.pong_ai, player2=chaser_ai.pong_ai)
+
+    pygame.quit()
