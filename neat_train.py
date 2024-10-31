@@ -1,54 +1,58 @@
-import neat, os
 import pickle
+
+import neat, os
 from graphviz import Digraph
 
-# Remove this import and import the real game
-from sim import *
+from playPong import Game, visualize_game_loop
+
+# opponent AI would be a simple chaser for now
+from chaser_ai import pong_ai as opponent_ai
 
 # Fitness function
 HIT_REWARD = 2
 MISS_PENALTY = 5
 OPPONENT_WIN_PENALTY = 10
 PLAYER_WIN_REWARD = 20
+MAX_SCORE = 5
 
-def update_fitness(ball, player_paddle, g):
+
+def update_fitness(game: Game, genome: neat.genome, side: 1 | -1 = 1) -> bool:
     """
     Update the fitness score of the AI based on the game state.
-    Parameters:
-    ball (Ball): The ball object containing its current position and scores.
-    player_paddle (Paddle): The player's paddle object containing its current position.
-    g (Genome): The genome object representing the AI's neural network.
-    Returns:
-    bool: False if the game should end, True if the game should continue.
+
+    Game state would be updated based on the move of the AI which shall be previously determined by the neural network.
+    and told to the game object via Game.set_move() method.
+
+    :param game: The game object representing the current state of the game.
+    :param genome: The genome object representing the AI player.
+    :param side: The side of the AI player (1 for left, -1 for right).
+    :return: False if the game should end, True if the game should continue.
     """
+    res = game.update()
 
     # Check for game over conditions
-    if ball.score_opponent >= MAX_SCORE:
-        g.fitness -= OPPONENT_WIN_PENALTY
+    if res*side == -2:
+        genome.fitness -= OPPONENT_WIN_PENALTY
         return False  # End the game
-    elif ball.score_player >= MAX_SCORE:
-        g.fitness += PLAYER_WIN_REWARD
+    elif res*side == 2:
+        genome.fitness += PLAYER_WIN_REWARD
         return False  # End the game
+    if res*side == -1:
+        genome.fitness -= MISS_PENALTY
+    elif res*side == 1:
+        genome.fitness += HIT_REWARD
 
-    if abs(ball.x) == abs(player_paddle.x - BALL_RADIUS):
-        if player_paddle.y - 1/2 * PADDLE_HEIGHT <= ball.y <= player_paddle.y + 1/2 * PADDLE_HEIGHT:
-            # Reward for successful hit
-            g.fitness += HIT_REWARD
-        else:
-            # Penalty for missing the ball
-            g.fitness -= MISS_PENALTY
-            return False  # End the game
-        
     return True  # Continue the game
 
-def eval_genomes(genomes, config):
+def eval_genomes(genomes: list[tuple[int, neat.genome]], config: neat.config.Config) -> None:
     """
     Evaluate the fitness of each genome in the population.
-    Args:
-        genomes (list): List of tuples (genome_id, genome) representing the population.
-        config (neat.Config): Configuration object for the NEAT algorithm.
+
     The function initializes a neural network for each genome and simulates a game of Pong.
     The fitness of each genome is determined based on its performance in the game.
+
+    :param genomes: List of tuples (genome_id, genome) representing the population.
+    :param config: Configuration object for the NEAT algorithm.
     """
 
     for _, g in genomes:
@@ -56,37 +60,21 @@ def eval_genomes(genomes, config):
         net = neat.nn.FeedForwardNetwork.create(g, config)
         g.fitness = 0  # Initialize the fitness score
 
-        # pygame.init()
-        # win = pygame.display.set_mode((WIDTH, HEIGHT))
-        # pygame.display.set_caption("Pong Game")
-        # clock = pygame.time.Clock()
-        # font = pygame.font.SysFont("comicsans", 30)
-
         # Initialize game objects
-        player_paddle = Paddle(30, HEIGHT // 2 - PADDLE_HEIGHT // 2)
-        opponent_paddle = Paddle(WIDTH - 30 - PADDLE_WIDTH, HEIGHT // 2 - PADDLE_HEIGHT // 2)
-        ball = Ball()
-
+        game = Game()
+        player_paddle = game.get_paddle()
+        opponent_paddle = game.get_other_paddle()
+        ball = game.get_ball()
         run = True
+
         while run:
 
-            # clock.tick(FPS)
-            # for event in pygame.event.get():
-            #     if event.type == pygame.QUIT:
-            #         run = False
+            opponent_move = opponent_ai(opponent_paddle.frect, player_paddle.frect, ball.frect, game.get_table_size())
+            opponent_paddle.set_move(opponent_move)
 
-            # NOTE: modify to interact with real game
-            # Opponent AI movement
-            opponent_move = opponent_ai(ball, opponent_paddle)
-            opponent_paddle.move(opponent_move)
-
-            # Draw everything
-            # draw_window(win, player_paddle, opponent_paddle, ball, font)
-
-            # Input to the neural network: ball's movement and relative position to platform
             output = net.activate((
-                ball.x, ball.y,
-                player_paddle.x, player_paddle.y
+                ball.frect.pos[0], ball.frect.pos[1],
+                player_paddle.frect.pos[0], player_paddle.frect.pos[1]
             ))
 
             # Determine movement from network output (-1, 0, or 1)
@@ -94,31 +82,27 @@ def eval_genomes(genomes, config):
             
             # NOTE: Modify to pass decision back to game
             # Update platform position
-            player_paddle.move(finalOP)
+            player_paddle.set_move(finalOP)
 
-            # Move ball
-            ball.move(player_paddle, opponent_paddle)
 
             # Incremental reward for staying in play
             g.fitness += 0.1
 
-            run = update_fitness(ball, player_paddle, g)
+            run = update_fitness(game, g, side = 1)
 
         # pygame.quit()
+        # TODO: Implement the visualization of the game
 
-def run(config_path):
+def run(config_path: str, show = False) -> None:
     """
     Run the NEAT algorithm with the given configuration.
-
-    Args:
-        config_path (str): Path to the NEAT configuration file.
-
-    Returns:
-        None
 
     This function sets up the NEAT population, adds reporters for logging and statistics,
     runs the NEAT algorithm to evolve the population, and saves the best genome to a file.
     It also visualizes the winning genome.
+
+    :param config_path: Path to the configuration file for the NEAT algorithm.
+    :param show: Whether to show the visualization of the winning genome and a sample game.
     """
 
     config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
@@ -133,18 +117,37 @@ def run(config_path):
 
     winner = p.run(eval_genomes)
 
-    print("Best fitness -> {}".format(winner))
+    print(f"Best genome -> {winner}")
 
     # Save the best genome for later use
     with open("best_genome.pkl", "wb") as f:
         pickle.dump(winner, f)
 
-    # Visualize the winning genome
-    visualize_genome(winner)
+    if show:
+        """ 
+        # Visualize the winning genome as a graph
+        visualize_genome(winner)
+        """
+        # Visualize the game loop
+        game = Game()
+        import neat_inference
+        from playPong import HumanPlayer
+        # load the winner to the neat_inference
+        neat_inference.model = neat.nn.FeedForwardNetwork.create(winner, config)
+        # break down the iterable
+        visualize_game_loop(game, player1=neat_inference.pong_ai, player2=HumanPlayer())
+
+
+
 
 # TODO: Fix this function! Bugging!
-def visualize_genome(genome):
-    """Function to visualize the winning genome using Graphviz."""
+def visualize_genome(genome) -> Digraph:
+    """
+    Function to visualize the winning genome using Graphviz.
+
+    :param genome: The winning genome object.
+    :return: The Digraph object representing the neural network.
+    """
 
     dot = Digraph(comment='Neural Network', format='png')
 
@@ -171,9 +174,11 @@ def visualize_genome(genome):
 
     # Render the graph and view it
     dot.render('neural_network', view=True, cleanup=True)
+
     print("Visualization generated: neural_network.png")
+    return dot
 
 if __name__ == "__main__":
     local_dir = os.path.dirname(__file__)
     config_path = os.path.join(local_dir, "config-fc.txt")
-    run(config_path)
+    run(config_path, show=True)

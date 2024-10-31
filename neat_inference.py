@@ -20,11 +20,16 @@ def pong_ai(paddle_frect, other_paddle_frect, ball_frect, table_size):
     '''
     Main trigger for the official Pong Game
     '''
-
-    output = model.activate((ball_frect.pos[0], ball_frect.pos[1], 
+    output = model.activate((ball_frect.pos[0], ball_frect.pos[1],
                           paddle_frect.pos[0], paddle_frect.pos[1]))
     
-    finalOP = output.index(max(output)) - 1
+    op = output.index(max(output)) - 1
+    if op == 0:
+        finalOP = None
+    elif op == 1:
+        finalOP = "up"
+    else:
+        finalOP = "down"
 
     return finalOP
 

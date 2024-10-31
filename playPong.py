@@ -3,6 +3,8 @@ import time
 from typing import Callable
 import pygame
 from numpy import char
+import inspect
+from chaser_ai import pong_ai as chaser
 
 from PongAIvAi import fRect, Ball, Paddle, render
 class Game:
@@ -107,7 +109,11 @@ class Game:
         """
         Update the game state by simulating the game loop.
 
-        :return: 1 if the first player scores, 0 if no one scores, -1 if the second player scores
+        :return: 0 if no one scores;
+                 1 if the first player scores;
+                 2 if the first player wins;
+                 -1 if the second player scores;
+                 -2 if the second player wins;
         """
         # Move paddles
         self._paddle.move(self._other_paddle.frect, self._ball.frect, self._table_size)
@@ -147,6 +153,7 @@ class Game:
 
         # Check for win
         if self.score[0] >= self.score_to_win or self.score[1] >= self.score_to_win:
+            ret = 2 if self.score[0] > self.score[1] else -2
             self.score = [0, 0]
             self._ball = Ball(
                 (self._table_size[0] / 2, self._table_size[1] / 2),
@@ -189,13 +196,14 @@ class Game:
             # the structure of the game
             self.move_getter = lambda _1, _2, _3, _4: None
 
-        def set_move(self, move: str) -> None:
+        def set_move(self, move: str | int) -> None:
             """
             Set the move for the paddle.
 
-            :param move: "up" or "down"
+            :param move: "up" or "down", or -1, 0, 1 (for AI)
             :return: None
             """
+            move = "up" if move == 1 else "down" if move == -1 else move
             self.move_getter = lambda _1, _2, _3, _4: move
 
     def get_ball(self) -> Ball:
@@ -206,19 +214,19 @@ class Game:
         """
         return self._ball
 
-    def get_paddle(self) -> Paddle:
+    def get_paddle(self) -> _Paddle:
         """
         Get the first paddle object.
 
-        :return: Paddle object
+        :return: _Paddle object
         """
         return self._paddle
 
-    def get_other_paddle(self) -> Paddle:
+    def get_other_paddle(self) -> _Paddle:
         """
         Get the second paddle object.
 
-        :return: Paddle object
+        :return: _Paddle object
         """
         return self._other_paddle
 
@@ -232,12 +240,26 @@ class Game:
 pygame.init()
 
 class HumanPlayer():
-    def __init__(self, up: str, down: str):
-        self.up: char = up
-        self.down: char = down
+    def __init__(self, up: str = "UP", down: str = "DOWN"):
+        """
+        Initialize the human player.
+
+        For arrow keys, use "UP", "DOWN", "LEFT", "RIGHT"
+
+        :param up: The key to move the paddle up.
+        :param down: The key to move the paddle down.
+        """
+        self.up: str = up
+        self.down: str = down
 
 
-    def __call__(self, game_state: tuple[fRect, fRect, fRect, tuple[int, int]]) -> str | None:
+    def __call__(self, _1=None, _2=None, _3=None, _4=None) -> str | None:
+        """
+        Get the move from the human player.
+
+        :param game_state: The current game state.
+        :return: "up" or "down" or None
+        """
         keys = pygame.key.get_pressed()
 
         if keys[eval(f"pygame.K_{self.up}")]:
@@ -248,24 +270,45 @@ class HumanPlayer():
             return None
 
 
-def visualize_game_loop(game_instance: Game, player1: Callable, player2: Callable) -> None:
+def visualize_game_loop(game_instance: Game, player1: Callable = chaser, player2: Callable = chaser, caption: str = "Pong") -> None:
+    """
+    Visualize the game loop.
+
+    :param game_instance: The game instance to visualize.
+    :param player1: The first player.
+    :param player2: The second player.
+    :param caption: The caption for the game window.
+    :return: None
+    """
+
     clock = pygame.time.Clock()
 
     screen = pygame.display.set_mode(game_instance.get_table_size())
-    pygame.display.set_caption("Pong")
+    pygame.display.set_caption(caption)
+
+
+    player1_num_args = len(inspect.signature(player1).parameters)
+    player2_num_args = len(inspect.signature(player2).parameters)
 
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-        game_instance.play(player1(game_instance.get_game_state()))
-        game_instance.other_play(player2(game_instance.get_game_state()))
+        game_instance.play(player1(*game_instance.get_game_state()))
+        game_instance.other_play(player2(*game_instance.get_game_state()))
         game_instance.update()
         render(screen, [game_instance.get_paddle(), game_instance.get_other_paddle()], game_instance.get_ball(), game_instance.score, game_instance.get_table_size())
         clock.tick(60)
 
-def random_play(game_instance:Game, n:int) -> float:
+def random_play(game_instance: Game, n:int) -> float:
+    """
+    Play the game n times and return the time taken.
+
+    :param game_instance: The game instance to play.
+    :param n: The number of times to play the game.
+    :return: The time taken to play the game n times.
+    """
     i = 0
     prev = time.time()
     while i < n:
@@ -277,7 +320,6 @@ def random_play(game_instance:Game, n:int) -> float:
     timeTaken = time.time() - prev
     return timeTaken
 
-
 def main() -> None:
     """
     Main function to run the game.
@@ -286,7 +328,7 @@ def main() -> None:
     game_instance = Game()
 
     player1 = HumanPlayer("w", "s")
-    player2 = HumanPlayer("DOWN", "UP")
+    player2 = HumanPlayer()
     visualize_game_loop(game_instance, player1, player2)
 
 
