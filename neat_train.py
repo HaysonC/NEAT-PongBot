@@ -91,7 +91,6 @@ def eval_genomes(genomes: list[tuple[int, neat.genome]], config: neat.config.Con
             run = update_fitness(game, g, side = 1)
 
         # pygame.quit()
-        # TODO: Implement the visualization of the game
 
 def run(config_path: str, show = False) -> None:
     """

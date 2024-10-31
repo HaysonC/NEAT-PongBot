@@ -1,6 +1,16 @@
 import neat, pickle, os
 
-def load_model(config_path):
+from PongAIvAi import fRect
+
+
+def load_model(config_path: str
+               ) -> neat.nn.FeedForwardNetwork:
+    """
+    Load the genome from the file and create a neural network from it.
+
+    :param config_path: The path to the configuration file
+    :return: The neural network created from the genome
+    """
 
     # Load the configuration
     config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
@@ -15,24 +25,32 @@ def load_model(config_path):
     net = neat.nn.FeedForwardNetwork.create(best_genome, config)
     return net
 
-def pong_ai(paddle_frect, other_paddle_frect, ball_frect, table_size):
 
-    '''
+def pong_ai(paddle_frect: fRect,
+            other_paddle_frect: fRect,
+            ball_frect: fRect,
+            table_size: tuple) -> str | None:
+    """
     Main trigger for the official Pong Game
-    '''
+
+    :param paddle_frect: The paddle object
+    :param other_paddle_frect: The other paddle object
+    :param ball_frect: The ball object
+    :param table_size: The size of the table
+
+    :return: The final output of the AI, either "up", "down", or None
+    """
+
     output = model.activate((ball_frect.pos[0], ball_frect.pos[1],
                           paddle_frect.pos[0], paddle_frect.pos[1]))
-    
     op = output.index(max(output)) - 1
-    if op == 0:
-        finalOP = None
-    elif op == 1:
-        finalOP = "up"
-    else:
-        finalOP = "down"
+    return None if op == 0 else "up" if op == 1 else "down"
 
-    return finalOP
+def main():
+    global model
+    local_dir = os.path.dirname(__file__)
+    config_path = os.path.join(local_dir, "config-fc.txt")
+    model = load_model(config_path)
 
-local_dir = os.path.dirname(__file__)
-config_path = os.path.join(local_dir, "config-fc.txt")
-model = load_model(config_path)
+if __name__ == '__main__':
+    main()
