@@ -129,11 +129,12 @@ class Ball:
     def factor_accelerate(self, factor):
         self.speed = (factor * self.speed[0], factor * self.speed[1])
 
-    def move(self, paddles, table_size, move_factor):
+    def move(self, paddles
+             , table_size,
+             move_factor):
         moved = 0
         walls_Rects = [Rect((-100, -100), (table_size[0] + 200, 100)),
                        Rect((-100, table_size[1]), (table_size[0] + 200, 100))]
-
         for wall_rect in walls_Rects:
             if self.frect.get_rect().colliderect(wall_rect):
                 c = 0
@@ -210,6 +211,7 @@ class Ball:
         # the velocity would then be transformed by a wall hit, and the ball would end up on the dark side of the wall
 
         if not moved:
+
             self.frect.move_ip(self.speed[0], self.speed[1], move_factor)
             # print "moving "
         # print "poition: ", self.frect.pos
