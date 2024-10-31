@@ -8,11 +8,17 @@ WHITE = (255, 255, 255)
 WIDTH = 780
 HEIGHT = 480
 BALL_RADIUS = 15
-PADDLE_WIDTH = 20
-PADDLE_HEIGHT = 100
-PADDLE_SPEED = 5
+PADDLE_WIDTH = 10
+PADDLE_HEIGHT = 70
+PADDLE_SPEED = 1
 FPS = 60
-MAX_SCORE = 10
+MAX_SCORE = 5
+
+# Fitness function
+HIT_REWARD = 2
+MISS_PENALTY = 5
+OPPONENT_WIN_PENALTY = 10
+PLAYER_WIN_REWARD = 20
 
 class Ball:
     def __init__(self):
@@ -25,8 +31,7 @@ class Ball:
         self.score_opponent = 0
 
     def draw(self, win):
-        # pygame.draw.circle(win, RED, (self.x, self.y), BALL_RADIUS)
-        pass
+        pygame.draw.circle(win, RED, (self.x, self.y), BALL_RADIUS)
 
     def move(self, player_paddle, opponent_paddle):
         # Ball movement
@@ -75,8 +80,7 @@ class Paddle:
         self.vel = PADDLE_SPEED
 
     def draw(self, win):
-        # pygame.draw.rect(win, WHITE, (self.x, self.y, PADDLE_WIDTH, PADDLE_HEIGHT))
-        pass
+        pygame.draw.rect(win, WHITE, (self.x, self.y, PADDLE_WIDTH, PADDLE_HEIGHT))
 
     def move(self, direction):
         # Move paddle up or down within screen bounds
@@ -94,19 +98,39 @@ def opponent_ai(ball, opponent_paddle):
     return 0
 
 def draw_window(win, player_paddle, opponent_paddle, ball, font):
-    # win.fill((0, 0, 0))  # Solid black background
-    # player_paddle.draw(win)
-    # opponent_paddle.draw(win)
-    # ball.draw(win)
+    win.fill((0, 0, 0))  # Solid black background
+    player_paddle.draw(win)
+    opponent_paddle.draw(win)
+    ball.draw(win)
 
-    # # Display scores
-    # player_score_text = font.render(f"Player: {ball.score_player}", True, WHITE)
-    # opponent_score_text = font.render(f"Opponent: {ball.score_opponent}", True, WHITE)
-    # win.blit(player_score_text, (WIDTH // 4, 20))
-    # win.blit(opponent_score_text, (3 * WIDTH // 4, 20))
+    # Display scores
+    player_score_text = font.render(f"Player: {ball.score_player}", True, WHITE)
+    opponent_score_text = font.render(f"Opponent: {ball.score_opponent}", True, WHITE)
+    win.blit(player_score_text, (WIDTH // 4, 20))
+    win.blit(opponent_score_text, (3 * WIDTH // 4, 20))
 
-    # pygame.display.update()
-    pass
+    pygame.display.update()
+
+def update_fitness(ball, player_paddle, g):
+
+    # Check for game over conditions
+    if ball.score_opponent >= MAX_SCORE:
+        g.fitness -= OPPONENT_WIN_PENALTY
+        return False  # End the game
+    elif ball.score_player >= MAX_SCORE:
+        g.fitness += PLAYER_WIN_REWARD
+        return False  # End the game
+
+    if abs(ball.x) == abs(player_paddle.x - BALL_RADIUS):
+        if player_paddle.y - 1/2 * PADDLE_HEIGHT <= ball.y <= player_paddle.y + 1/2 * PADDLE_HEIGHT:
+            # Reward for successful hit
+            g.fitness += HIT_REWARD
+        else:
+            # Penalty for missing the ball
+            g.fitness -= MISS_PENALTY
+            return False  # End the game
+        
+    return True  # Continue the game
 
 def eval_genomes(genomes, config):
 
@@ -159,20 +183,7 @@ def eval_genomes(genomes, config):
             # Incremental reward for staying in play
             g.fitness += 0.1
 
-            # Check for collision with the platform
-            if ball.x == player_paddle.x - BALL_RADIUS:
-                if player_paddle.y <= ball.y <= player_paddle.y + PADDLE_HEIGHT:
-                    # Reward for successful hit
-                    g.fitness += 10
-                else:
-                    # Penalty for missing the ball and end the run
-                    g.fitness -= 5
-                    run = False
-
-            if ball.score_opponent >= MAX_SCORE or ball.score_player >= MAX_SCORE:
-                run = False  # End game when max score is reached
-                # print(f"Game over")
-                break
+            run = update_fitness(ball, player_paddle, g)
 
         # pygame.quit()
 
