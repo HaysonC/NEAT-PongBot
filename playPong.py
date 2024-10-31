@@ -1,7 +1,10 @@
+import sys
+import time
+from typing import Callable
 import pygame
-import random
-from PongAIvAi import fRect, Ball, Paddle, render
+from numpy import char
 
+from PongAIvAi import fRect, Ball, Paddle, render
 class Game:
     def __init__(self,
                  table_size: tuple[int, int] = (440, 280),
@@ -80,7 +83,7 @@ class Game:
 
         self.score = [0, 0]
 
-    def play(self, move: str | None) -> None:
+    def play(self, move: str | None = None) -> None:
         """
         The first player plays.
 
@@ -90,7 +93,7 @@ class Game:
         self._paddle.set_move(move)
         self._paddle.move(self._other_paddle.frect, self._ball.frect, self._table_size)
 
-    def other_play(self, move: str | None) -> None:
+    def other_play(self, move: str | None = None) -> None:
         """
         The second player plays.
 
@@ -184,7 +187,7 @@ class Game:
             self.timeout = timeout
             # move getter is not an actual getter, it's just a mirror to circumvent
             # the structure of the game
-            self._move_getter = lambda _1, _2, _3, _4: None
+            self.move_getter = lambda _1, _2, _3, _4: None
 
         def set_move(self, move: str) -> None:
             """
@@ -193,7 +196,7 @@ class Game:
             :param move: "up" or "down"
             :return: None
             """
-            self._move_getter = lambda _1, _2, _3, _4: move
+            self.move_getter = lambda _1, _2, _3, _4: move
 
     def get_ball(self) -> Ball:
         """
@@ -226,45 +229,69 @@ class Game:
         :return: Tuple containing the table size (width, height)
         """
         return self._table_size
+pygame.init()
+
+class HumanPlayer():
+    def __init__(self, up: str, down: str):
+        self.up: char = up
+        self.down: char = down
+
+
+    def __call__(self, game_state: tuple[fRect, fRect, fRect, tuple[int, int]]) -> str | None:
+        keys = pygame.key.get_pressed()
+
+        if keys[eval(f"pygame.K_{self.up}")]:
+            return "up"
+        elif keys[eval(f"pygame.K_{self.down}")]:
+            return "down"
+        else:
+            return None
+
+
+def visualize_game_loop(game_instance: Game, player1: Callable, player2: Callable) -> None:
+    clock = pygame.time.Clock()
+
+    screen = pygame.display.set_mode(game_instance.get_table_size())
+    pygame.display.set_caption("Pong")
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+        game_instance.play(player1(game_instance.get_game_state()))
+        game_instance.other_play(player2(game_instance.get_game_state()))
+        game_instance.update()
+        render(screen, [game_instance.get_paddle(), game_instance.get_other_paddle()], game_instance.get_ball(), game_instance.score, game_instance.get_table_size())
+        clock.tick(60)
+
+def random_play(game_instance:Game, n:int) -> float:
+    i = 0
+    prev = time.time()
+    while i < n:
+        game_instance.play()
+        game_instance.other_play()
+        res = game_instance.update()
+        if res != 0:
+            i += 1
+    timeTaken = time.time() - prev
+    return timeTaken
+
 
 def main() -> None:
     """
     Main function to run the game.
     """
-    pygame.init()
-    screen = pygame.display.set_mode((440, 280))
-    pygame.display.set_caption('PongAIvAI Test')
 
     game_instance = Game()
 
-    clock = pygame.time.Clock()
-    running = True
+    player1 = HumanPlayer("w", "s")
+    player2 = HumanPlayer("DOWN", "UP")
+    visualize_game_loop(game_instance, player1, player2)
 
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
 
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_UP]:
-            game_instance.play("up")
-        elif keys[pygame.K_DOWN]:
-            game_instance.play("down")
-        else:
-            game_instance.play(None)
 
-        game_instance.other_play("up" if random.random() > 0.5 else "down")
 
-        game_instance.update()
-
-        screen.fill((0, 0, 0))
-
-        render(screen, [game_instance.get_paddle(), game_instance.get_other_paddle()], game_instance.get_ball(), game_instance.score, game_instance.get_table_size())
-        pygame.display.flip()
-
-        clock.tick(60)
-
-    pygame.quit()
 
 if __name__ == "__main__":
     main()
