@@ -17,6 +17,10 @@ def load_model(config_path):
 
 def pong_ai(paddle_frect, other_paddle_frect, ball_frect, table_size):
 
+    '''
+    Main trigger for the official Pong Game
+    '''
+
     output = model.activate((ball_frect.pos[0], ball_frect.pos[1], 
                           paddle_frect.pos[0], paddle_frect.pos[1]))
     
