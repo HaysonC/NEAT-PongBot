@@ -13,23 +13,23 @@ from playPong import Game, visualize_game_loop
 from chaser_ai import pong_ai as opponent_ai
 
 # Fitness function
-PLAYER_WIN_REWARD = 10
-OPPONENT_WIN_PENALTY = 10
+PLAYER_WIN_REWARD = 5
+OPPONENT_WIN_PENALTY = 5
 HIT_REWARD = 1
 MISS_PENALTY = 1
 
 # Hyperparameters
-LEARNING_RATE = 1e-3
+LEARNING_RATE = 1e-4
 
 # Memory hyperparameters
-MEMORY_CAPACITY = 100
-BATCH_SIZE = 32  # Number of transitions sampled for training
-STEPS_TO_UPDATE = 5
+MEMORY_CAPACITY = 1000
+BATCH_SIZE = 64  # Number of transitions sampled for training
+STEPS_TO_UPDATE = 10
 
 # Training hyperparameters
 EPSILON_START = 0.9
-EPSILON_END = 0.1
-EPSILON_DECAY = 500
+EPSILON_END = 0.05
+EPSILON_DECAY = 200
 GAMMA = 0.9  # Discount factor
 TAU = 0.05   # Soft update parameter
 
@@ -48,7 +48,6 @@ class ReplayMemory(object):
     def sample(self, batch_size):
         return random.sample(self.memory, batch_size)
     
-
     def __len__(self):
         return len(self.memory)
 
@@ -148,6 +147,8 @@ class DQNAgent():
         torch.nn.utils.clip_grad_value_(self.policy_net.parameters(), 1)
         self.optimizer.step()
 
+        return state_action_values.mean().item()
+
 
     def get_reward(self, game, reward, side):
         res = game.update()
@@ -169,6 +170,8 @@ class DQNAgent():
 
     def train(self, num_episodes, logging):
         episode_durations = []
+        episode_rewards = []
+        q_values = []
 
         for i in range(num_episodes):
 
@@ -178,6 +181,8 @@ class DQNAgent():
             opponent_paddle = game.get_other_paddle()
             ball = game.get_ball()
             reward = 0
+            episode_reward = 0
+            q_value = []
 
             # we pack the state as the four desired inputs
             state = torch.tensor([ball.frect.pos[0], ball.frect.pos[1], player_paddle.frect.pos[0], player_paddle.frect.pos[1]], dtype=torch.float32, device=self.device)
@@ -192,6 +197,7 @@ class DQNAgent():
 
                 run = self.get_reward(game, reward, 1) # this updates the state
                 reward = torch.tensor([reward], device=self.device, dtype=torch.float32)
+                episode_reward += reward.item()
 
                 # now we can read the next state
                 obs = torch.tensor([ball.frect.pos[0], ball.frect.pos[1], player_paddle.frect.pos[0], player_paddle.frect.pos[1]], dtype=torch.float32, device=self.device)
@@ -203,7 +209,10 @@ class DQNAgent():
 
                 self.memory.push(state, action, next_state, reward)
                 state = next_state
-                self.optimize_model()
+
+                q = self.optimize_model()  # Assume optimize_model returns the Q-value of the chosen action
+                if q is not None:
+                    q_value.append(q)  # Record Q-value for plotting
 
                 # now we use soft update to update the two networks
                 target_net_state_dict = self.target_net.state_dict()
@@ -214,12 +223,15 @@ class DQNAgent():
 
                 if not run:
                     episode_durations.append(t + 1)
+                    episode_rewards.append(episode_reward)
+                    q_values.append(q_value.mean())
                     logging.info(f"Episode {i} completed in {t + 1} steps with reward {reward.item()}")
                     break
         
         torch.save(self.policy_net.state_dict(), "models/pong_dqn.pth")
         print("Model saved as pong_dqn.pth")
-        return episode_durations
+
+        return episode_durations, episode_rewards, q_values
 
 
     def load_weights(self, path="models/pong_dqn.pth") -> None:
@@ -245,6 +257,29 @@ def pong_ai(paddle_frect, other_paddle_frect, ball_frect, table_size):
     return None if output == 0 else "up" if output == 1 else "down"
 
 
+def plot_training_results(episode_rewards, q_values):
+
+    import matplotlib.pyplot as plt
+
+    # Plot reward over episodes
+    plt.figure(figsize=(10, 5))
+    plt.subplot(1, 2, 1)
+    plt.plot(episode_rewards)
+    plt.xlabel('Episode')
+    plt.ylabel('Total Reward')
+    plt.title('Reward per Episode')
+
+    # Plot Q-values over time
+    plt.subplot(1, 2, 2)
+    plt.plot(q_values)
+    plt.xlabel('Episode')
+    plt.ylabel('Q-value')
+    plt.title('Q-value over Time')
+
+    plt.tight_layout()
+    plt.show()
+
+
 if __name__ != "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -262,7 +297,9 @@ if __name__ == "__main__":
 
     episodes = 200 # Adjust as needed
 
-    durations = agent.train(episodes, logging)
+    durations, rewards, q_values = agent.train(episodes, logging)
+
+    plot_training_results(rewards, q_values)
 
     print(f"Training completed over {episodes} episodes")
     
