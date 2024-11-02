@@ -1,17 +1,25 @@
-# A Study of Deep RL and NeuroEvolution in Atari Games
+# Deep RL and NeuroEvolution in Atari Games
 
-Note: DDQN and VPG are kinda bugging right now but hopefully they will get fixed sometime soon
+## Reinforcement Learning -- DQN & PG
 
-## Usage of RL
+Please only use DDQN for training or inference. I hypothesize Q learning will outperform Policy Gradient, and I will train DDPG in the future to prove this point. For now, only DQN trains and works properly.
 
-The runner script `run_agent.py` is also kinda retarded, but it will be fixed.
+```
+python3 pong_dqn.py
+```
+
+For inference, `import pong_dqn`, create `DQNAgent()`, `agent.load_weights()`, and `agent.inference()`. This has already been implemented in `PongAIvsAi.py`.
+
+> NOTE: The two VPG agents are not working well, I will fix soon
+
+The runner script `run_agent.py` is also kinda retarded, but it will be fixed. **I will fix the trigger script someday soon**.
 
 ```
 python run_agent.py --help
 python run_agent.py --mode train --agent 3 --episodes 100
 ```
 
-## NEAT
+## NEAT: Neuroevolution by Augmented Topology
 
 The NEAT implementation is built on top of the neat-python package. A reference example can be found [here](https://github.com/NirajSawant136/Simple-AI-using-NEAT/tree/master).
 
@@ -19,7 +27,9 @@ The configuration is written in `config-fc.txt` and the training is done using a
 
 For customized training (which is recommended), modify the config file (e.g. fitness threshold).
 
-> You should modify `neat_train.py` if you are using custom game env
+> `neat_train.py` has already been modified to train with new environment. Tuning is ongoing...
+
+Again, making inference is similar to discussed in [the previous section](#usage-of-rl)
 
 ## Dependencies
 

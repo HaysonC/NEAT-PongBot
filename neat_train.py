@@ -119,7 +119,7 @@ def run(config_path: str, show = False) -> None:
     print(f"Best genome -> {winner}")
 
     # Save the best genome for later use
-    with open("best_genome.pkl", "wb") as f:
+    with open("models/best_genome.pkl", "wb") as f:
         pickle.dump(winner, f)
 
     if show:
