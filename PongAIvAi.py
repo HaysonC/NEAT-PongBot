@@ -338,7 +338,6 @@ def game_loop(screen, paddles, ball, table_size, clock_rate, turn_wait_rate, sco
     # return
 
 import chaser_ai
-import neat_inference
 def init_game(
     table_size: tuple[int,int] = (440, 280),
     paddle_size: tuple[int,int]= (10, 70),
@@ -385,7 +384,8 @@ def init_game(
 
 
 if __name__ == '__main__':
+    # import neat_inference
+    import pong_dqn
     pygame.init()
-    init_game(player1=neat_inference.pong_ai, player2=chaser_ai.pong_ai)
-
+    init_game(player1=pong_dqn.pong_ai, player2=chaser_ai.pong_ai)
     pygame.quit()

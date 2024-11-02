@@ -13,11 +13,25 @@ from playPong import Game, visualize_game_loop
 from chaser_ai import pong_ai as opponent_ai
 
 # Fitness function
-HIT_REWARD = 2
-MISS_PENALTY = 5
+PLAYER_WIN_REWARD = 10
 OPPONENT_WIN_PENALTY = 10
-PLAYER_WIN_REWARD = 20
-MAX_SCORE = 5
+HIT_REWARD = 1
+MISS_PENALTY = 1
+
+# Hyperparameters
+LEARNING_RATE = 1e-3
+
+# Memory hyperparameters
+MEMORY_CAPACITY = 100
+BATCH_SIZE = 32  # Number of transitions sampled for training
+STEPS_TO_UPDATE = 5
+
+# Training hyperparameters
+EPSILON_START = 0.9
+EPSILON_END = 0.1
+EPSILON_DECAY = 500
+GAMMA = 0.9  # Discount factor
+TAU = 0.05   # Soft update parameter
 
 # ======================Replay Buffer=======================
 
@@ -45,15 +59,17 @@ class QNetwork(nn.Module):
 
     def __init__(self, num_actions=3):
         super(QNetwork, self).__init__()
-        self.fc1 = nn.Linear(4, 128)
-        self.fc2 = nn.Linear(128, 128)
-        self.fc3 = nn.Linear(128, num_actions)
+        self.fc1 = nn.Linear(4, 64)
+        self.fc2 = nn.Linear(64, 128)
+        self.fc3 = nn.Linear(128, 64)
+        self.fc4 = nn.Linear(64, num_actions)
 
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
-        x = self.fc3(x)
+        x = torch.relu(self.fc3(x))
+        x = self.fc4(x)
         return x
 
 
@@ -70,16 +86,16 @@ class DQNAgent():
         self.device = device
         self.policy_net = self.policy_net
         self.target_net = self.target_net
-        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=1e-4)
-        self.memory = ReplayMemory(10000)
+        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=LEARNING_RATE)
+        self.memory = ReplayMemory(MEMORY_CAPACITY)
         self.steps_done = 0
-        self.num_steps_to_update = 10
+        self.num_steps_to_update = STEPS_TO_UPDATE
 
         self.Transitions = namedtuple("Transition", ("state", "action", "next_state", "reward"))
     
 
     def select_action(self, state):
-        eps_threshold = 0.05 + (0.9 - 0.05) * math.exp(-1. * self.steps_done / 200)
+        eps_threshold = EPSILON_END + (EPSILON_START - EPSILON_END) * math.exp(-1. * self.steps_done / EPSILON_DECAY)
         self.steps_done += 1
 
         if random.random() > eps_threshold:
@@ -92,11 +108,11 @@ class DQNAgent():
     
 
     def optimize_model(self):
-        if len(self.memory) < 32 or self.steps_done % self.num_steps_to_update != 0:
+        if len(self.memory) < BATCH_SIZE or self.steps_done % self.num_steps_to_update != 0:
             return
         
         # Sample a batch of transitions from the replay memory
-        transitions = self.memory.sample(32)
+        transitions = self.memory.sample(BATCH_SIZE)
         batch = self.Transitions(*zip(*transitions))
 
         # Extract the individual elements from the batch
@@ -114,17 +130,17 @@ class DQNAgent():
         state_action_values = q_values[range(q_values.size(0)), action_batch.long().squeeze()] 
 
         # Compute V(s_{t+1}) for all next states.
-        next_state_values = torch.zeros(32, device=self.device)
+        next_state_values = torch.zeros(BATCH_SIZE, device=self.device)
         if non_final_next_states.size(0) > 0:  # Ensure non_final_next_states is not empty
             with torch.no_grad():
                 next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0]
 
         # Compute the expected Q values
-        expected_state_action_values = (next_state_values * 0.99) + reward_batch
+        expected_state_action_values = (next_state_values * GAMMA) + reward_batch.squeeze()
 
         # Compute Huber loss
         criterion = nn.SmoothL1Loss()
-        loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
+        loss = criterion(state_action_values, expected_state_action_values)
 
         # Optimize the model
         self.optimizer.zero_grad()
@@ -183,7 +199,7 @@ class DQNAgent():
                 if not run:
                     next_state = None
                 else:
-                    next_state = torch.tensor(obs, dtype=torch.float32, device=self.device)
+                    next_state = obs
 
                 self.memory.push(state, action, next_state, reward)
                 state = next_state
@@ -193,14 +209,13 @@ class DQNAgent():
                 target_net_state_dict = self.target_net.state_dict()
                 policy_net_state_dict = self.policy_net.state_dict()
                 for key in target_net_state_dict:
-                    target_net_state_dict[key] = 0.005 * policy_net_state_dict[key] + (1 - 0.005) * target_net_state_dict[key]
+                    target_net_state_dict[key] = TAU * policy_net_state_dict[key] + (1 - TAU) * target_net_state_dict[key]
                 self.target_net.load_state_dict(target_net_state_dict)
 
                 if not run:
                     episode_durations.append(t + 1)
+                    logging.info(f"Episode {i} completed in {t + 1} steps with reward {reward.item()}")
                     break
-                
-                logging.info(f"Episode {i} completed in {t + 1} steps with reward {reward.item()}")
         
         torch.save(self.policy_net.state_dict(), "models/pong_dqn.pth")
         print("Model saved as pong_dqn.pth")
@@ -208,7 +223,7 @@ class DQNAgent():
 
 
     def load_weights(self, path="models/pong_dqn.pth") -> None:
-        self.policy_net.load_state_dict(torch.load(path))
+        self.policy_net.load_state_dict(torch.load(path, weights_only=True))
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
 
@@ -227,7 +242,6 @@ def pong_ai(paddle_frect, other_paddle_frect, ball_frect, table_size):
 
     output = agent.inference((ball_frect.pos[0], ball_frect.pos[1], 
                               paddle_frect.pos[0], paddle_frect.pos[1]))
-    print(output)
     return None if output == 0 else "up" if output == 1 else "down"
 
 
