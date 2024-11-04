@@ -7,6 +7,7 @@ import inspect
 from chaser_ai import pong_ai as chaser
 
 from PongAIvAi import fRect, Ball, Paddle, render
+
 class Game:
     def __init__(self,
                  table_size: tuple[int, int] = (440, 280),
@@ -74,8 +75,8 @@ class Game:
         # Initialize move
         self.move = None
 
-        self._ball = Ball(
-            (self._table_size[0] / 2, self._table_size[1] / 2),
+        self._ball = self._Ball(
+            self._table_size,
             self._ball_size,
             self.paddle_bounce,
             self.wall_bounce,
@@ -120,19 +121,24 @@ class Game:
         self._other_paddle.move(self._paddle.frect, self._ball.frect, self._table_size)
 
         # Move ball
+        ball = 0
         inv_move_factor = int((self._ball.speed[0] ** 2 + self._ball.speed[1] ** 2) ** .5)
         if inv_move_factor > 0:
             for i in range(inv_move_factor):
-                self._ball.move([self._paddle, self._other_paddle], self._table_size, 1. / inv_move_factor)
+                _ = self._ball.move([self._paddle, self._other_paddle], self._table_size, 1. / inv_move_factor)
+                ball = _ if _ != 0 else ball
         else:
-            self._ball.move([self._paddle, self._other_paddle], self._table_size, 1)
+            ball = self._ball.move([self._paddle, self._other_paddle], self._table_size, 1)
         ret = 0
+        # check for hitting the ball
+        if ball != 1:
+            ret = 3 * ball
         # Check for scoring
         if self._ball.frect.pos[0] + self._ball.size[0] / 2 < 0:
             ret = -1
             self.score[1] += 1
-            self._ball = Ball(
-                (self._table_size[0] / 2, self._table_size[1] / 2),
+            self._ball = self._Ball(
+                self._table_size,
                 self._ball_size,
                 self.paddle_bounce,
                 self.wall_bounce,
@@ -142,8 +148,8 @@ class Game:
         elif self._ball.frect.pos[0] + self._ball.size[0] / 2 >= self._table_size[0]:
             ret = 1
             self.score[0] += 1
-            self._ball = Ball(
-                (self._table_size[0] / 2, self._table_size[1] / 2),
+            self._ball = self._Ball(
+                self._table_size,
                 self._ball_size,
                 self.paddle_bounce,
                 self.wall_bounce,
@@ -155,9 +161,8 @@ class Game:
         if self.score[0] >= self.score_to_win or self.score[1] >= self.score_to_win:
             ret = 2 if self.score[0] > self.score[1] else -2
             self.score = [0, 0]
-            self._ball = Ball(
-                (self._table_size[0] / 2, self._table_size[1] / 2),
-                self._ball_size,
+            self._ball = self._Ball(
+                self._table_size,self._ball_size,
                 self.paddle_bounce,
                 self.wall_bounce,
                 self.dust_error,
@@ -206,11 +211,30 @@ class Game:
             move = "up" if move == 1 else "down" if move == -1 else move
             self.move_getter = lambda _1, _2, _3, _4: move
 
-    def get_ball(self) -> Ball:
+    class _Ball(Ball):
+        def __init__(self, table_size: tuple[int, int], size: tuple[int, int], paddle_bounce: float, wall_bounce: float,
+                     dust_error: float, init_speed_mag: float):
+            super().__init__(table_size, size, paddle_bounce, wall_bounce, dust_error, init_speed_mag)
+
+        def move(self, paddles
+                 , table_size,
+                 move_factor) -> 1 | 0 | -1:
+            super().move(paddles, table_size, move_factor)
+            ret = 0
+            for paddle in paddles:
+                if not ((paddle.facing == 1 and self.get_center()[0] < paddle.frect.pos[0] + paddle.frect.size[
+                    0] / 2) or
+                        (paddle.facing == 0 and self.get_center()[0] > paddle.frect.pos[0] + paddle.frect.size[0] / 2)):
+                    ret = paddle.facing
+            return ret
+
+
+    # Getters
+    def get_ball(self) -> _Ball:
         """
         Get the ball object.
 
-        :return: Ball object
+        :return: _Ball object
         """
         return self._ball
 
@@ -238,7 +262,6 @@ class Game:
         """
         return self._table_size
 pygame.init()
-
 class HumanPlayer():
     def __init__(self, up: str = "UP", down: str = "DOWN"):
         """
@@ -270,7 +293,10 @@ class HumanPlayer():
             return None
 
 
-def visualize_game_loop(game_instance: Game, player1: Callable = chaser, player2: Callable = chaser, caption: str = "Pong") -> None:
+def visualize_game_loop(game_instance: Game,
+                        player1: Callable = chaser,
+                        player2: Callable = chaser,
+                        caption: str = "Pong") -> None:
     """
     Visualize the game loop.
 
@@ -286,9 +312,6 @@ def visualize_game_loop(game_instance: Game, player1: Callable = chaser, player2
     screen = pygame.display.set_mode(game_instance.get_table_size())
     pygame.display.set_caption(caption)
 
-
-    player1_num_args = len(inspect.signature(player1).parameters)
-    player2_num_args = len(inspect.signature(player2).parameters)
 
     while True:
         for event in pygame.event.get():
@@ -320,20 +343,5 @@ def random_play(game_instance: Game, n:int) -> float:
     timeTaken = time.time() - prev
     return timeTaken
 
-def main() -> None:
-    """
-    Main function to run the game.
-    """
-
-    game_instance = Game()
-
-    player1 = HumanPlayer("w", "s")
-    player2 = HumanPlayer()
-    visualize_game_loop(game_instance, player1, player2)
 
 
-
-
-
-if __name__ == "__main__":
-    main()

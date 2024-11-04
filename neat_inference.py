@@ -1,6 +1,5 @@
 import neat, pickle, os
-
-from PongAIvAi import fRect
+from PongAIvAi import fRect, init_game
 
 
 def load_model(config_path: str
@@ -40,9 +39,9 @@ def pong_ai(paddle_frect: fRect,
 
     :return: The final output of the AI, either "up", "down", or None
     """
-
     output = model.activate((ball_frect.pos[0], ball_frect.pos[1],
-                          paddle_frect.pos[0], paddle_frect.pos[1]))
+                          paddle_frect.pos[0], paddle_frect.pos[1],
+                            ))
     op = output.index(max(output)) - 1
     return None if op == 0 else "up" if op == 1 else "down"
 
@@ -54,3 +53,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    init_game(player1=pong_ai)

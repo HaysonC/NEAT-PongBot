@@ -1,80 +1,84 @@
-
 [NEAT]
+# NEAT Algorithm Parameters
 fitness_criterion     = max
-fitness_threshold     = 280
-pop_size              = 20
-reset_on_extinction   = False
+fitness_threshold     = 100000
+pop_size              = 100
+reset_on_extinction   = True
 
 [DefaultGenome]
-# node activation options
+# Activation Function Parameters
 activation_default      = tanh
-activation_mutate_rate  = 0.01
+activation_mutate_rate  = 0.1
 activation_options      = tanh relu sigmoid cube
 
-# node aggregation options
+# Aggregation Function Parameters
 aggregation_default     = sum
-aggregation_mutate_rate = 0.00
+aggregation_mutate_rate = 0.1
 aggregation_options     = sum product min max median
 
-# node bias options
+# Bias Parameters
 bias_init_mean          = 0.0
 bias_init_stdev         = 1.0
-bias_max_value          = 30.0
-bias_min_value          = -30.0
-bias_mutate_power       = 0.5
-bias_mutate_rate        = 0.7
-bias_replace_rate       = 0.1
+bias_max_value          = 10.0
+bias_min_value          = -10.0
+bias_mutate_power       = 1.0
+bias_mutate_rate        = 0.8
+bias_replace_rate       = 0.2
 
-# genome compatibility options
-compatibility_disjoint_coefficient = 1.0
-compatibility_weight_coefficient   = 0.5
+# Compatibility Coefficients for Speciation
+compatibility_disjoint_coefficient = 1.2
+compatibility_weight_coefficient   = 0.7
 
-# connection add/remove rates
-conn_add_prob           = 0.5
-conn_delete_prob        = 0.5
+# Connection Mutation Rates
+conn_add_prob           = 0.4
+conn_delete_prob        = 0.3
 
-# connection enable options
+# Connection Enable Mutation
 enabled_default         = True
-enabled_mutate_rate     = 0.01
+enabled_mutate_rate     = 0.05
 
-feed_forward            = False
+# Initial Network Structure
+feed_forward            = True
 initial_connection      = full
 
-# node add/remove rates
-node_add_prob           = 0.2
-node_delete_prob        = 0.2
+# Node Mutation Rates
+node_add_prob           = 0.3
+node_delete_prob        = 0.1
 
-# network parameters
-num_hidden              = 0
+# Network Structure Parameters
+num_hidden              = 4
 num_inputs              = 4
 num_outputs             = 3
 
-# node response options
+# Node Response Parameters
 response_init_mean      = 1.0
 response_init_stdev     = 0.0
-response_max_value      = 100.0
-response_min_value      = -100.0
-response_mutate_power   = 0.0
-response_mutate_rate    = 0.0
-response_replace_rate   = 0.0
+response_max_value      = 10.0
+response_min_value      = -10.0
+response_mutate_power   = 0.5
+response_mutate_rate    = 0.1
+response_replace_rate   = 0.05
 
-# connection weight options
+# Connection Weight Parameters
 weight_init_mean        = 0.0
 weight_init_stdev       = 1.0
-weight_max_value        = 100
-weight_min_value        = -100
-weight_mutate_power     = 0.5
-weight_mutate_rate      = 0.8
-weight_replace_rate     = 0.1
+weight_max_value        = 10.0
+weight_min_value        = -10.0
+weight_mutate_power     = 1.0
+weight_mutate_rate      = 0.9
+weight_replace_rate     = 0.3
 
 [DefaultSpeciesSet]
-compatibility_threshold = 3.0
+# Species Set Parameters
+compatibility_threshold = 2.5
 
 [DefaultStagnation]
+# Stagnation Control Parameters
 species_fitness_func = max
-max_stagnation       = 10
-species_elitism      = 3
+max_stagnation       = 4
+species_elitism      = 2
 
 [DefaultReproduction]
-elitism            = 3
-survival_threshold = 0.1
+# Reproduction Parameters
+elitism            = 1
+survival_threshold = 0.2
