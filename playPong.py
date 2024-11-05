@@ -4,11 +4,13 @@ from typing import Callable
 import pygame
 from numpy import char
 import inspect
-from chaser_ai import pong_ai as chaser
+
+import neat_inference
+from chaser_ai import chaser_ai
 
 from PongAIvAi import fRect, Ball, Paddle, render
 
-class Game:
+class Game(object):
     def __init__(self,
                  table_size: tuple[int, int] = (440, 280),
                  paddle_size: tuple[int, int] = (10, 70),
@@ -211,6 +213,14 @@ class Game:
             move = "up" if move == 1 else "down" if move == -1 else move
             self.move_getter = lambda _1, _2, _3, _4: move
 
+        def get_move(self) -> str | None:
+            """
+            Get the move for the paddle.
+
+            :return: "up" or "down" or None
+            """
+            return self.move_getter(None, None, None, None)
+
     class _Ball(Ball):
         def __init__(self, table_size: tuple[int, int], size: tuple[int, int], paddle_bounce: float, wall_bounce: float,
                      dust_error: float, init_speed_mag: float):
@@ -294,9 +304,10 @@ class HumanPlayer():
 
 
 def visualize_game_loop(game_instance: Game,
-                        player1: Callable = chaser,
-                        player2: Callable = chaser,
-                        caption: str = "Pong") -> None:
+                        player1: Callable = chaser_ai,
+                        player2: Callable = chaser_ai,
+                        caption: str = "Pong",
+                        test_reward: bool = False) -> None:
     """
     Visualize the game loop.
 
@@ -304,6 +315,7 @@ def visualize_game_loop(game_instance: Game,
     :param player1: The first player.
     :param player2: The second player.
     :param caption: The caption for the game window.
+    :param test_reward: Whether to test the reward.
     :return: None
     """
 
@@ -312,7 +324,7 @@ def visualize_game_loop(game_instance: Game,
     screen = pygame.display.set_mode(game_instance.get_table_size())
     pygame.display.set_caption(caption)
 
-
+    font = pygame.font.Font(None, 36)
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -320,7 +332,22 @@ def visualize_game_loop(game_instance: Game,
                 sys.exit()
         game_instance.play(player1(*game_instance.get_game_state()))
         game_instance.other_play(player2(*game_instance.get_game_state()))
-        game_instance.update()
+        if test_reward:
+            from neat_train import update_fitness
+            class _genome:
+                def __init__(self):
+                    self.fitness: float = 0
+            myDummyGenome = _genome()
+            otherDummyGenome = _genome()
+            update_fitness(game_instance, myDummyGenome, otherDummyGenome)
+            if myDummyGenome.fitness != 0 or otherDummyGenome.fitness != 0:
+                # print the finess on the pygame screen
+                text = font.render(f"Fitness: {myDummyGenome.fitness} {otherDummyGenome.fitness}", True, (255, 255, 255))
+                screen.blit(text, (10, 10))
+
+        else :
+            game_instance.update()
+        pygame.display.flip()
         render(screen, [game_instance.get_paddle(), game_instance.get_other_paddle()], game_instance.get_ball(), game_instance.score, game_instance.get_table_size())
         clock.tick(60)
 
@@ -345,3 +372,5 @@ def random_play(game_instance: Game, n:int) -> float:
 
 
 
+if __name__ == '__main__':
+    visualize_game_loop(Game(), neat_inference.pong_ai, HumanPlayer(), test_reward=True)

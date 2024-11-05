@@ -17,7 +17,7 @@
 #   Parts of the code are based on T. S. Hayden Dennison's PongClone (2011)
 #   http://www.pygame.org/project-PongClone-1740-3032.html
 
-
+import neat_inference
 import pygame, sys, time, random, os
 from pygame.locals import *
 
@@ -353,7 +353,7 @@ def init_game(
     turn_wait_rate: int = 3,
     score_to_win: int = 5,
     player1 = directions_from_input,
-    player2 = chaser_ai.pong_ai
+    player2 = chaser_ai
 ):
 
     screen = pygame.display.set_mode(table_size)
@@ -384,8 +384,6 @@ def init_game(
 
 
 if __name__ == '__main__':
-    # import neat_inference
-    import pong_dqn
     pygame.init()
-    init_game(player1=pong_dqn.pong_ai, player2=chaser_ai.pong_ai)
+    init_game()
     pygame.quit()

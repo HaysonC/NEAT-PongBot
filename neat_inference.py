@@ -1,13 +1,16 @@
 import neat, pickle, os
 from PongAIvAi import fRect, init_game
+local_dir = os.path.dirname(__file__)
+config_path = os.path.join(local_dir, "config-fc.txt")
 
+model_path = "models/best_genome.pkl"
 
-def load_model(config_path: str
-               ) -> neat.nn.FeedForwardNetwork:
+def load_model(config_path: str, model_path:str = model_path) -> neat.nn.FeedForwardNetwork:
     """
     Load the genome from the file and create a neural network from it.
 
     :param config_path: The path to the configuration file
+    :param model_path: The path to the model file
     :return: The neural network created from the genome
     """
 
@@ -17,13 +20,13 @@ def load_model(config_path: str
                          config_path)
 
     # Load the best genome
-    with open("best_genome.pkl", "rb") as f:
+    with open(model_path, "rb") as f:
         best_genome = pickle.load(f)
 
     # Create a neural network from the loaded genome
     net = neat.nn.FeedForwardNetwork.create(best_genome, config)
     return net
-
+model = load_model(config_path)
 
 def pong_ai(paddle_frect: fRect,
             other_paddle_frect: fRect,
@@ -46,10 +49,8 @@ def pong_ai(paddle_frect: fRect,
     return None if op == 0 else "up" if op == 1 else "down"
 
 def main():
-    global model
-    local_dir = os.path.dirname(__file__)
-    config_path = os.path.join(local_dir, "config-fc.txt")
-    model = load_model(config_path)
+    pass
+
 
 if __name__ == '__main__':
     main()
