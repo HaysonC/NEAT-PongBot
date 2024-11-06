@@ -4,7 +4,6 @@ from typing import Callable, Optional
 import pygame
 from typing_extensions import override
 
-import neat_inference
 from chaser_ai import chaser_ai
 
 from PongAIvAi import fRect, Ball, Paddle, render
@@ -377,4 +376,6 @@ def random_play(game_instance: Game, n:int) -> float:
 
 
 if __name__ == '__main__':
-    visualize_game_loop(Game(), neat_inference.pong_ai, neat_inference.pong_ai2, tickTime=0.01)
+    # import neat_inference
+    import pong_dqn
+    visualize_game_loop(Game(), pong_dqn.pong_ai, tickTime=0.01)

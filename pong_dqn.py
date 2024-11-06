@@ -10,13 +10,14 @@ import torch.optim as optim
 from playPong import Game, visualize_game_loop
 
 # opponent AI would be a simple chaser for now
-from chaser_ai import pong_ai as opponent_ai
+from chaser_ai import chaser_ai as opponent_ai
 
 # Fitness function
 PLAYER_WIN_REWARD = 5
 OPPONENT_WIN_PENALTY = 5
 HIT_REWARD = 1
 MISS_PENALTY = 1
+NOT_MOVING_PENALTY = 0.05
 
 # Hyperparameters
 LEARNING_RATE = 1e-4
@@ -30,8 +31,13 @@ STEPS_TO_UPDATE = 10
 EPSILON_START = 0.9
 EPSILON_END = 0.05
 EPSILON_DECAY = 200
-GAMMA = 0.9  # Discount factor
+GAMMA = 0.999  # Discount factor
 TAU = 0.05   # Soft update parameter
+
+SEED = 42
+
+torch.manual_seed(SEED)
+random.seed(SEED)
 
 # ======================Replay Buffer=======================
 
@@ -58,16 +64,16 @@ class QNetwork(nn.Module):
 
     def __init__(self, num_actions=3):
         super(QNetwork, self).__init__()
-        self.fc1 = nn.Linear(4, 64)
-        self.fc2 = nn.Linear(64, 128)
+        self.fc1 = nn.Linear(4, 128)
+        self.fc2 = nn.Linear(128, 128)
         self.fc3 = nn.Linear(128, 64)
         self.fc4 = nn.Linear(64, num_actions)
 
 
     def forward(self, x):
-        x = torch.relu(self.fc1(x))
-        x = torch.relu(self.fc2(x))
-        x = torch.relu(self.fc3(x))
+        x = torch.tanh(self.fc1(x))
+        x = torch.tanh(self.fc2(x))
+        x = torch.tanh(self.fc3(x))
         x = self.fc4(x)
         return x
 
@@ -153,16 +159,28 @@ class DQNAgent():
     def get_reward(self, game, reward, side):
         res = game.update()
 
+        def paddle_not_moving(g: Game, other_paddle = False):
+            if not other_paddle:
+                return g.get_paddle().get_move() == 0 or g.get_paddle().get_move() is None or \
+                (g.get_paddle().get_move() == "up" and g.get_paddle().frect.pos[1] <= g.get_paddle().frect.size[1] + 0.1) or \
+                (g.get_paddle().get_move() == "down" and g.get_paddle().frect.pos[1] >= g.get_table_size()[1] - g.get_paddle().frect.size[1] - 0.1)
+            else:
+                return g.get_other_paddle().get_move() == 0 or g.get_other_paddle().get_move() is None or \
+                (g.get_other_paddle().get_move() == "up" and g.get_other_paddle().frect.pos[1] <= g.get_other_paddle().frect.size[1] + 0.1) or \
+                (g.get_other_paddle().get_move() == "down" and g.get_other_paddle().frect.pos[1] >= g.get_table_size()[1] - g.get_other_paddle().frect.size[1] - 0.1)
+
+        if paddle_not_moving(game):
+            reward -= NOT_MOVING_PENALTY
+
         # Check for game over conditions
-        if res*side == -2:
+        if res  == -2:
             reward -= OPPONENT_WIN_PENALTY
             return False  # End the game
-        elif res*side == 2:
-            reward += PLAYER_WIN_REWARD
-            return False  # End the game
-        if res*side == -1:
+
+        if res  == -1:
             reward -= MISS_PENALTY
-        elif res*side == 1:
+
+        if res  == 3:
             reward += HIT_REWARD
 
         return True  # Continue the game
@@ -180,7 +198,6 @@ class DQNAgent():
             player_paddle = game.get_paddle()
             opponent_paddle = game.get_other_paddle()
             ball = game.get_ball()
-            reward = 0
             episode_reward = 0
             q_value = []
 
@@ -195,6 +212,7 @@ class DQNAgent():
                 opponent_paddle.set_move(opponent_move)
                 player_paddle.set_move(action.item())
 
+                reward = 0
                 run = self.get_reward(game, reward, 1) # this updates the state
                 reward = torch.tensor([reward], device=self.device, dtype=torch.float32)
                 episode_reward += reward.item()
@@ -224,8 +242,8 @@ class DQNAgent():
                 if not run:
                     episode_durations.append(t + 1)
                     episode_rewards.append(episode_reward)
-                    q_values.append(q_value.mean())
-                    logging.info(f"Episode {i} completed in {t + 1} steps with reward {reward.item()}")
+                    q_values.append(sum(q_value) / len(q_value) if q_value else 0)
+                    logging.info(f"Episode {i} completed in {t + 1} steps with reward {episode_reward}")
                     break
         
         torch.save(self.policy_net.state_dict(), "models/pong_dqn.pth")
@@ -295,7 +313,7 @@ if __name__ == "__main__":
     import logging
     logging.basicConfig(filename="training.log", level=logging.INFO)
 
-    episodes = 200 # Adjust as needed
+    episodes = 100 # Adjust as needed
 
     durations, rewards, q_values = agent.train(episodes, logging)
 
