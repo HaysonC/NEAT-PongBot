@@ -376,6 +376,6 @@ def random_play(game_instance: Game, n:int) -> float:
 
 
 if __name__ == '__main__':
-    # import neat_inference
+    import neat_inference
     import pong_dqn
-    visualize_game_loop(Game(), pong_dqn.pong_ai, tickTime=0.01)
+    visualize_game_loop(Game(), pong_dqn.pong_ai, neat_inference.pong_ai2, tickTime=0.01)
