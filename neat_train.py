@@ -1,3 +1,26 @@
+# neat_train.py
+# NEAT Training script for the Pong game.
+"""
+This script trains a NEAT agent to play the Pong game against other NEAT agents and a chaser agent.
+
+The script uses the NEAT-Python library to train the agent. The agent is evaluated based on its performance in matches
+
+against other agents. The fitness function rewards the agent for hitting the ball and penalizes it for missing the ball or
+
+not moving (at the start). The agent is trained for a predefined number of generations.
+
+STRUCTURE:
+
+- The script defines the game constants, fitness function constants, and evaluation constants.
+- eval_genomes: The scripts create a pool of genomes and evaluates them in matches against other genomesfunction.
+    - Each genome competes in a predefined number of matches against randomly selected opponent
+    and once with a chaser agent.
+- simulate match: The script simulates a single match between two genomes and updates their fitness scores with the below update_fitness function.
+- update_fitness: The script updates the fitness score of the AI based on the game state and updates the game state.
+- run: The script runs the NEAT algorithm with the given configuration.
+- The script runs the NEAT algorithm for a predefined number of generations and saves the best genome to a file.
+"""
+
 import pickle
 import time
 from copy import deepcopy
@@ -6,22 +29,38 @@ from typing import Callable
 import neat
 from neat import Checkpointer
 import os
-from graphviz import Digraph
+from Analytics import Neat_Analytics
 from chaser_ai import chaser_dummy_neat as chaser
 from dummy_neat import dummy_neat
 from playPong import Game, visualize_game_loop
 
+# CURRENT STATE OF THE ART OF THE LAST RUN:
+# It is marginally better than human player when we don't focus, but if we lock in we can beat it fairly easily
+# TODO: CURRENT ISSUES (in order of importance and ease of implementation):
+# TODO: Implements Analytic information about the training:
+#      - Number of generations
+#      - Time taken for each generation and the total time
+#      - Number of matches played
+#      - Penalties and rewards given
+#      - Ability to beat chaser
+# TODO: Implement 2 more inputs: opponent's paddle's x, y;
+#      - Restructure the neural network to take in 6 inputs
+#      - Restructure the dummy classes
+# TODO: Implement better genetic algorithm for the NEAT:
+#      - Dissolve not moving features once it consistently moves and beat chaser
+# TODO: When saving a checkpoint and winner, save the generation number and a date time
+# TODO: Implement CPU or GPU usage
+# TODO: Implement a app view for how and when the reward is given
+# TODO: Implement NN visualization
+# TODO: Restructure the whole code to accommodate other games (for example, use generation *args and **kwargs, and build subclasses for the pong game)
+
 # Game constants
 BALL_SIZE = 10
-
 TABLE_WIDTH = 440
 TABLE_HEIGHT = 280
-
 PADDLE_WIDTH = 10
 PADDLE_HEIGHT = 70
-
 MAX_SCORE = 5
-
 
 
 # Fitness function constants
@@ -30,12 +69,19 @@ MISS_PENALTY = 0.7
 OPPONENT_WIN_PENALTY = 0
 PLAYER_WIN_REWARD = 0
 NOT_MOVING_PENALTY = 0.07
+WINRATE_NOT_PENALIZE = 0.8
 
 
 # Evaluation Constants
 MATCHES_PER_GENOME = 6
 AMOUNT_OF_CHASERS = 5
-GENERATION = 20
+GENERATION = 40
+NUM_POP = 70
+
+CONFIG_PATH = "config-fc.txt"
+p = neat.Population(neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                                       neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                                       CONFIG_PATH))
 
 def update_fitness(game: Game,
                    genome: neat.genome,
@@ -57,29 +103,33 @@ def update_fitness(game: Game,
         res =  temp.update()
         del temp
 
-    def paddle_not_moving(g: Game, other_paddle = False):
-        if not other_paddle:
-            return g.get_paddle().get_move() == 0 or g.get_paddle().get_move() is None or \
-            (g.get_paddle().get_move() == "up" and g.get_paddle().frect.pos[1] <= g.get_paddle().frect.size[1] + 0.1) or \
-            (g.get_paddle().get_move() == "down" and g.get_paddle().frect.pos[1] >= g.get_table_size()[1] - g.get_paddle().frect.size[1] - 0.1)
+    def paddle_not_moving(g: Game, other_paddle: bool = False):
+        if other_paddle:
+            paddle = g.get_other_paddle()
         else:
-            return g.get_other_paddle().get_move() == 0 or g.get_other_paddle().get_move() is None or \
-            (g.get_other_paddle().get_move() == "up" and g.get_other_paddle().frect.pos[1] <= g.get_other_paddle().frect.size[1] + 0.1) or \
-            (g.get_other_paddle().get_move() == "down" and g.get_other_paddle().frect.pos[1] >= g.get_table_size()[1] - g.get_other_paddle().frect.size[1] - 0.1)
+            paddle = g.get_paddle()
+        return paddle.get_move() == 0 or paddle.get_move() is None or \
+            (paddle.get_move() == "up" and paddle.frect.pos[1] <= g.get_paddle().frect.size[1] + 0.1) or \
+            (paddle.get_move() == "down" and paddle.frect.pos[1] >= g.get_table_size()[1] - paddle.frect.size[1] - 0.1)
 
-    if paddle_not_moving(game):
-        genome.fitness -= NOT_MOVING_PENALTY
-    if paddle_not_moving(game, other_paddle=True):
-        opponent_genome.fitness -= NOT_MOVING_PENALTY
+    if (l := analytics.get_latest("winRate")) is None or l < WINRATE_NOT_PENALIZE:
+        if paddle_not_moving(game):
+            genome.fitness -= NOT_MOVING_PENALTY
+        if paddle_not_moving(game, other_paddle=True):
+            opponent_genome.fitness -= NOT_MOVING_PENALTY
 
     # Check for game over conditions
     if res  == -2:
         genome.fitness -= OPPONENT_WIN_PENALTY
         opponent_genome.fitness += PLAYER_WIN_REWARD
+        if isinstance(genome, dummy_neat):
+            analytics.add_win()
         return False  # End the game
     elif res  == 2:
         genome.fitness += PLAYER_WIN_REWARD
         opponent_genome.fitness -= OPPONENT_WIN_PENALTY
+        if isinstance(opponent_genome, dummy_neat):
+            analytics.add_win()
         return False  # End the game
 
     if res  == -1:
@@ -154,6 +204,8 @@ def simulate_match(genome: neat.DefaultGenome | dummy_neat,
         should_continue = update_fitness(game, genome, opponent_genome)
 
 
+
+
 def eval_genomes(genomes: list[tuple[int, neat.genome]], config: neat.config.Config) -> None:
     """
     Evaluate the fitness of each genome in the population by having them compete against other genomes.
@@ -183,15 +235,26 @@ def eval_genomes(genomes: list[tuple[int, neat.genome]], config: neat.config.Con
             simulate_match(genome, opponent_genome, config)
             simulate_match(opponent_genome, genome, config)
         simulate_match(genome, chaser(), config)
+        simulate_match(chaser(), genome, config)
     for i,j in enumerate(matchPlayed):
         genomes[i][1].fitness /= j
     GENERATION -= 1
 
     # remove all dummy agents from the list of genomes
     genomes = [(genome_id, genome) for genome_id, genome in genomes if not isinstance(genome, dummy_neat)]
+    best = max(genomes, key=lambda x: x[1].fitness)
+    # update the analytics
+    analytics.append({
+        "winRate": analytics.get_winRate(2, n),
+        "bestGenome": best[1],
+        "bestGenomesFitness": best[1].fitness,
+        "bestGenomesSpecies": p.species.get_species_id(best[1].key),
+        "avgFitness": sum([g.fitness for _, g in genomes]) / len(genomes),
+    })
 
 
 def run(config_path: str, show: bool = False, useLastRun = False, generation:int = GENERATION) -> None:
+    global p
     """
     Run the NEAT algorithm with the given configuration.
 
@@ -231,9 +294,6 @@ def run(config_path: str, show: bool = False, useLastRun = False, generation:int
     # how do you save last run?
     if useLastRun:
         Checkpointer().save_checkpoint(p.config, p.population, p.species, generation)
-    # TODO: when saving a checkpoint and winner, save the generation number and a date time
-    # save it to lastcheckpoint.pkl, dont replace anyfile
-    # format date time to yyyy-mm-dd-hh-mm-ss
     if useLastRun:
         path = "models/lastcheckpoint" + time.strftime("%Y-%m-%d-%H-%M-%S") + ".pkl"
         with open(path, "wb") as f:
@@ -246,8 +306,7 @@ def run(config_path: str, show: bool = False, useLastRun = False, generation:int
         pickle.dump(winner, f)
 
     if show:
-        # Visualize the winning genome as a graph
-        # visualize_genome(winner)
+
 
         # Visualize the game loop with the winner vs a Human Player
         game = Game()
@@ -260,74 +319,25 @@ def run(config_path: str, show: bool = False, useLastRun = False, generation:int
         # Start the visualization game loop
         visualize_game_loop(game, player1=neat_inference.pong_ai, player2=HumanPlayer())
 
+        # Visualize the winning genome as a graph
+        # analytics.visualize_genome(winner)
 
-# TODO: Fix this function! Bugging!
-def visualize_genome(genome: neat.genome) -> Digraph:
-    """
-    Function to visualize the winning genome using Graphviz.
+        analytics.plot("winRate")
+        analytics.plot("time")
+        analytics.plot("timesForEachGen")
 
-    :param genome: The winning genome object.
-    :return: The Digraph object representing the neural network.
-    """
-
-    dot = Digraph(comment='Neural Network', format='png')
-    dot.attr(rankdir='LR')  # Left to right layout
-
-    # Define node names for input and output
-    node_names = {
-        -1: 'ball.x', -2: 'ball.y', -3: 'paddle.x', -4: 'paddle.y',  # Input nodes
-        0: 'Output_U', 1: 'Output_D', 2: 'Output_Stay'  # Output nodes
-    }
-
-    # Identify all nodes
-    input_nodes = [-1, -2, -3, -4]
-    output_nodes = [0, 1, 2]
-    hidden_nodes = [node for node in genome.nodes if node not in input_nodes and node not in output_nodes]
-
-    # Add input nodes
-    for node in input_nodes:
-        if node in node_names:
-            dot.node(str(node), label=node_names[node], style='filled', fillcolor='lightblue')
-
-    # Add hidden nodes
-    for node in hidden_nodes:
-        dot.node(str(node), label=f'Hidden {node}', style='filled', fillcolor='lightgrey')
-
-    # Add output nodes
-    for node in output_nodes:
-        if node in node_names:
-            dot.node(str(node), label=node_names[node], style='filled', fillcolor='lightgreen')
-
-    # Add edges with weights
-    for conn in genome.connections.values():
-        if conn.enabled:
-            input_node = conn.key[0]
-            output_node = conn.key[1]
-            weight = conn.weight
-            # Adjust the edge color based on weight direction
-            if weight > 0:
-                color = 'green'
-            elif weight < 0:
-                color = 'red'
-            else:
-                color = 'grey'
-            dot.edge(str(input_node), str(output_node), label=f"{weight:.2f}", color=color)
-
-    # Render the graph and view it
-    dot.render('neural_network', view=True, cleanup=True)
-
-    print("Visualization generated: neural_network.png")
-    return dot
+        analytics.save_to_file("analytics.json")
 
 
-if __name__ == "__main__":
+analytics = Neat_Analytics(NUM_POP)
+
+def main():
+
     local_dir = os.path.dirname(__file__)
     config_path = os.path.join(local_dir, "config-fc.txt")
     run(config_path, show=True)
 
 
+if __name__ == "__main__":
+    main()
 
-# TODO: Implement a app view for how and when the reward is given
-# TODO: Implement CPU or GPU usage
-# TODO: when saving a checkpoint and winner, save the generation number and a date time
-# TODO: Implement NN visualization

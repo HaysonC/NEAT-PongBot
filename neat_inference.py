@@ -1,11 +1,11 @@
 import neat, pickle, os
 from PongAIvAi import fRect, init_game
 local_dir = os.path.dirname(__file__)
-config_path = os.path.join(local_dir, "config-fc.txt")
 
-model_path = "models/best_genome.pkl"
+MODEL_PATH = "models/best_genome.pkl"
+MODEL_PATH2 = "models/first_genome_worked.pkl"
 
-def load_model(config_path: str, model_path:str = model_path) -> neat.nn.FeedForwardNetwork:
+def load_model(config_path: str =os.path.join(local_dir, "config-fc.txt"), model_path:str = MODEL_PATH) -> neat.nn.FeedForwardNetwork:
     """
     Load the genome from the file and create a neural network from it.
 
@@ -26,7 +26,12 @@ def load_model(config_path: str, model_path:str = model_path) -> neat.nn.FeedFor
     # Create a neural network from the loaded genome
     net = neat.nn.FeedForwardNetwork.create(best_genome, config)
     return net
+
+
+config_path = os.path.join(local_dir, "config-fc.txt")
 model = load_model(config_path)
+model2 = load_model(config_path, MODEL_PATH2)
+
 
 def pong_ai(paddle_frect: fRect,
             other_paddle_frect: fRect,
@@ -43,6 +48,27 @@ def pong_ai(paddle_frect: fRect,
     :return: The final output of the AI, either "up", "down", or None
     """
     output = model.activate((ball_frect.pos[0], ball_frect.pos[1],
+                          paddle_frect.pos[0], paddle_frect.pos[1],
+                            ))
+    op = output.index(max(output)) - 1
+    return None if op == 0 else "up" if op == 1 else "down"
+
+
+def pong_ai2(paddle_frect: fRect,
+            other_paddle_frect: fRect,
+            ball_frect: fRect,
+            table_size: tuple) -> str | None:
+    """
+    Main trigger for the official Pong Game
+
+    :param paddle_frect: The paddle object
+    :param other_paddle_frect: The other paddle object
+    :param ball_frect: The ball object
+    :param table_size: The size of the table
+
+    :return: The final output of the AI, either "up", "down", or None
+    """
+    output = model2.activate((ball_frect.pos[0], ball_frect.pos[1],
                           paddle_frect.pos[0], paddle_frect.pos[1],
                             ))
     op = output.index(max(output)) - 1

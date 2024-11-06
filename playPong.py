@@ -1,9 +1,8 @@
 import sys
 import time
-from typing import Callable
+from typing import Callable, Optional
 import pygame
-from numpy import char
-import inspect
+from typing_extensions import override
 
 import neat_inference
 from chaser_ai import chaser_ai
@@ -88,7 +87,7 @@ class Game(object):
 
         self.score = [0, 0]
 
-    def play(self, move: str | None = None) -> None:
+    def play(self, move: Optional[str] = None) -> None:
         """
         The first player plays.
 
@@ -98,7 +97,7 @@ class Game(object):
         self._paddle.set_move(move)
         self._paddle.move(self._other_paddle.frect, self._ball.frect, self._table_size)
 
-    def other_play(self, move: str | None = None) -> None:
+    def other_play(self, move: Optional[str] = None) -> None:
         """
         The second player plays.
 
@@ -115,9 +114,12 @@ class Game(object):
         :return: 0 if no one scores;
                  1 if the first player scores;
                  2 if the first player wins;
-                 -1 if the second player scores;
-                 -2 if the second player wins;
+                 3 if the second player hits the ball;
+                 -1 if the other player scores;
+                 -2 if the other player wins;
+                -3 if the first player hits the ball
         """
+
         # Move paddles
         self._paddle.move(self._other_paddle.frect, self._ball.frect, self._table_size)
         self._other_paddle.move(self._paddle.frect, self._ball.frect, self._table_size)
@@ -213,7 +215,7 @@ class Game(object):
             move = "up" if move == 1 else "down" if move == -1 else move
             self.move_getter = lambda _1, _2, _3, _4: move
 
-        def get_move(self) -> str | None:
+        def get_move(self) -> Optional[str]:
             """
             Get the move for the paddle.
 
@@ -226,6 +228,7 @@ class Game(object):
                      dust_error: float, init_speed_mag: float):
             super().__init__(table_size, size, paddle_bounce, wall_bounce, dust_error, init_speed_mag)
 
+        @override
         def move(self, paddles
                  , table_size,
                  move_factor) -> 1 | 0 | -1:
@@ -286,11 +289,10 @@ class HumanPlayer():
         self.down: str = down
 
 
-    def __call__(self, _1=None, _2=None, _3=None, _4=None) -> str | None:
+    def __call__(self, *args) -> Optional[str]:
         """
         Get the move from the human player.
 
-        :param game_state: The current game state.
         :return: "up" or "down" or None
         """
         keys = pygame.key.get_pressed()
@@ -307,7 +309,8 @@ def visualize_game_loop(game_instance: Game,
                         player1: Callable = chaser_ai,
                         player2: Callable = chaser_ai,
                         caption: str = "Pong",
-                        test_reward: bool = False) -> None:
+                        test_reward: bool = False,
+                        tickTime: float = 0.06) -> None:
     """
     Visualize the game loop.
 
@@ -316,6 +319,7 @@ def visualize_game_loop(game_instance: Game,
     :param player2: The second player.
     :param caption: The caption for the game window.
     :param test_reward: Whether to test the reward.
+    :param tickTime: The tick time for the game loop.
     :return: None
     """
 
@@ -349,7 +353,7 @@ def visualize_game_loop(game_instance: Game,
             game_instance.update()
         pygame.display.flip()
         render(screen, [game_instance.get_paddle(), game_instance.get_other_paddle()], game_instance.get_ball(), game_instance.score, game_instance.get_table_size())
-        clock.tick(60)
+        clock.tick(1/tickTime)
 
 def random_play(game_instance: Game, n:int) -> float:
     """
@@ -373,4 +377,4 @@ def random_play(game_instance: Game, n:int) -> float:
 
 
 if __name__ == '__main__':
-    visualize_game_loop(Game(), neat_inference.pong_ai, HumanPlayer(), test_reward=True)
+    visualize_game_loop(Game(), neat_inference.pong_ai, neat_inference.pong_ai2, tickTime=0.01)

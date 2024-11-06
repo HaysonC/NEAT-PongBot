@@ -39,7 +39,7 @@ enabled_mutate_rate     = 0.05
 
 # Initial Network Structure
 feed_forward            = True
-initial_connection      = full
+initial_connection = full_direct
 
 # Node Mutation Rates
 node_add_prob           = 0.3

@@ -16,11 +16,8 @@
 #
 #   Parts of the code are based on T. S. Hayden Dennison's PongClone (2011)
 #   http://www.pygame.org/project-PongClone-1740-3032.html
-
-import neat_inference
-import pygame, sys, time, random, os
+import pygame, random
 from pygame.locals import *
-
 import math
 
 white = [255, 255, 255]
@@ -69,6 +66,7 @@ class Paddle:
         self.facing = facing
         self.max_angle = max_angle
         self.timeout = timeout
+        self.move_getter = lambda *args : None
 
     def factor_accelerate(self, factor):
         self.speed = factor * self.speed
@@ -375,6 +373,7 @@ def init_game(
 
     pygame.display.flip()
     clock.tick(4)
+    clock.tick(4)
 
     paddles[0].move_getter, paddles[1].move_getter = paddles[1].move_getter, paddles[0].move_getter
 
@@ -383,7 +382,3 @@ def init_game(
     pygame.quit()
 
 
-if __name__ == '__main__':
-    pygame.init()
-    init_game()
-    pygame.quit()
