@@ -36,7 +36,8 @@ model2 = load_model(config_path, MODEL_PATH2)
 def pong_ai(paddle_frect: fRect,
             other_paddle_frect: fRect,
             ball_frect: fRect,
-            table_size: tuple) -> str | None:
+            table_size: tuple,
+            mod = 2) -> str | None:
     """
     Main trigger for the official Pong Game
 
@@ -44,10 +45,16 @@ def pong_ai(paddle_frect: fRect,
     :param other_paddle_frect: The other paddle object
     :param ball_frect: The ball object
     :param table_size: The size of the table
+    :param mod: The model to use, either 1 or 2
 
     :return: The final output of the AI, either "up", "down", or None
     """
-    output = model.activate((ball_frect.pos[0], ball_frect.pos[1],
+    if mod == 1:
+        output = model.activate((ball_frect.pos[0], ball_frect.pos[1],
+                          paddle_frect.pos[0], paddle_frect.pos[1],
+                            ))
+    else:
+        output = model2.activate((ball_frect.pos[0], ball_frect.pos[1],
                           paddle_frect.pos[0], paddle_frect.pos[1],
                             ))
     op = output.index(max(output)) - 1

@@ -27,10 +27,11 @@ from copy import deepcopy
 from random import random
 from typing import Callable
 import neat
+import numpy as np
 from neat import Checkpointer
 import os
 from Analytics import Neat_Analytics
-from chaser_ai import chaser_dummy_neat as chaser
+from chaser_ai import chaser_dummy_neat as chaser, chaser_dummy_neat
 from dummy_neat import dummy_neat
 from playPong import Game, visualize_game_loop
 
@@ -159,28 +160,37 @@ def simulate_match(genome: neat.DefaultGenome | dummy_neat,
     :param max_steps: Maximum steps to prevent infinite games.
     """
     # Create neural networks for both genomes
-    net = neat.nn.FeedForwardNetwork.create(genome, config)
-    if isinstance(opponent_genome, neat.DefaultGenome):
-        opponent_net = neat.nn.FeedForwardNetwork.create(opponent_genome, config)
-    elif isinstance(opponent_genome, dummy_neat):
-        opponent_net = opponent_genome.net
+    if isinstance(genome, dummy_neat):
+        net = genome.net
+    elif isinstance(genome, neat.DefaultGenome):
+        net = neat.nn.FeedForwardNetwork.create(genome, config)
     else:
-        raise ValueError("Invalid opponent genome type")
+        raise ValueError("Invalid genome type")
+
+    if isinstance(opponent_genome, dummy_neat):
+        opponent_net = opponent_genome.net
+    elif isinstance(opponent_genome, neat.DefaultGenome):
+        opponent_net = neat.nn.FeedForwardNetwork.create(genome, config)
+    else:
+        raise ValueError("Invalid genome type")
     # Initialize game
     game = Game(
         paddle_size=(PADDLE_WIDTH, PADDLE_HEIGHT),
         ball_size=(BALL_SIZE, BALL_SIZE),
         table_size=(TABLE_WIDTH, TABLE_HEIGHT)
     )
-    player_paddle = game.get_paddle()
-    opponent_paddle = game.get_other_paddle()
-    ball = game.get_ball()
+
     should_continue = True
 
     steps = 0  # To prevent infinite games
 
+
     while should_continue and steps < max_steps:
         steps += 1
+
+        ball = game.get_ball()
+        player_paddle = game.get_paddle()
+        opponent_paddle = game.get_other_paddle()
 
 
         player_output = net.activate((ball.frect.pos[0],
@@ -195,13 +205,15 @@ def simulate_match(genome: neat.DefaultGenome | dummy_neat,
                                                  opponent_paddle.frect.pos[1]
                                                  ))
 
-        player_move = player_output.index(max(player_output)) - 1  # Outputs: -1, 0, 1
+        player_move = np.argmax(player_output) - 1  # Outputs: -1, 0, 1
         player_paddle.set_move(player_move)
-        opponent_move = opponent_output.index(max(opponent_output)) - 1  # Outputs: -1, 0, 1
+        opponent_move = np.argmax(opponent_output) - 1  # Outputs: -1, 0, 1
         opponent_paddle.set_move(opponent_move)
 
         # Update game state and fitness
         should_continue = update_fitness(game, genome, opponent_genome)
+            # render
+
 
 
 
@@ -216,8 +228,8 @@ def eval_genomes(genomes: list[tuple[int, neat.genome]], config: neat.config.Con
     :param genomes: List of tuples (genome_id, genome) representing the population.
     :param config: Configuration object for the NEAT algorithm.
     """
-    global GENERATION
     # create a list of all genomes and add some chasers to it
+    print(genomes)
     n = len(genomes)
     matchPlayed = [0 for _ in range(n)]
     for genome_id, genome in genomes:
@@ -234,11 +246,12 @@ def eval_genomes(genomes: list[tuple[int, neat.genome]], config: neat.config.Con
             opponent_genome_id, opponent_genome = genomes[choice]
             simulate_match(genome, opponent_genome, config)
             simulate_match(opponent_genome, genome, config)
-        simulate_match(genome, chaser(), config)
-        simulate_match(chaser(), genome, config)
+
+        simulate_match(genome, chaserbot, config)
+        simulate_match(chaserbot, genome, config)
+        matchPlayed[i] += 1
     for i,j in enumerate(matchPlayed):
         genomes[i][1].fitness /= j
-    GENERATION -= 1
 
     # remove all dummy agents from the list of genomes
     genomes = [(genome_id, genome) for genome_id, genome in genomes if not isinstance(genome, dummy_neat)]
@@ -253,7 +266,7 @@ def eval_genomes(genomes: list[tuple[int, neat.genome]], config: neat.config.Con
     })
 
 
-def run(config_path: str, show: bool = False, useLastRun = False, generation:int = GENERATION) -> None:
+def run(config_path: str, show: bool = False, useLastRun = False) -> None:
     global p
     """
     Run the NEAT algorithm with the given configuration.
@@ -263,6 +276,7 @@ def run(config_path: str, show: bool = False, useLastRun = False, generation:int
     :param useLastRun: Whether to use the last run to continue the training
     :param generation: Number of generation to train
     """
+
     # Load configuration
     config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                          neat.DefaultSpeciesSet, neat.DefaultStagnation,
@@ -290,10 +304,10 @@ def run(config_path: str, show: bool = False, useLastRun = False, generation:int
     p.add_reporter(stats)
 
     # Run NEAT for up to 50 generations
-    winner = p.run(eval_genomes, n=generation)
+    winner = p.run(eval_genomes, n=GENERATION)
     # how do you save last run?
     if useLastRun:
-        Checkpointer().save_checkpoint(p.config, p.population, p.species, generation)
+        Checkpointer().save_checkpoint(p.config, p.population, p.species, GENERATION)
     if useLastRun:
         path = "models/lastcheckpoint" + time.strftime("%Y-%m-%d-%H-%M-%S") + ".pkl"
         with open(path, "wb") as f:
@@ -339,5 +353,12 @@ def main():
 
 
 if __name__ == "__main__":
+    import pygame
+
+    chaserbot = chaser_dummy_neat(paddle_size=(PADDLE_WIDTH, PADDLE_HEIGHT),
+                                  ball_size=(BALL_SIZE, BALL_SIZE),
+                                  table_size=(TABLE_WIDTH, TABLE_HEIGHT))
+    pygame.init()
+    clock = pygame.time.Clock()
     main()
 

@@ -245,7 +245,7 @@ class Neat_Analytics(Analytics):
         Initialize the analytics object
 
         :param pop: The population of the generation
-        :param gen: The generation number
+        :param gen: The gener ation number
         :param winRate: The win rate of the generation against a certain agent
         :param startTime: The previous time
         """
@@ -319,4 +319,13 @@ class Neat_Analytics(Analytics):
         return dot
 
 
-class Q_Analytics(Analytics): ...
+class Q_Analytics(Analytics):
+    def __init__(self, pop: int,
+                 gen: int = 0,
+                 winRate: float = 0.0,
+                 startTime: float = time.time(),
+                 prevTime: float = time.time()
+                    ) -> None:
+        super().__init__(pop, gen, winRate, startTime, prevTime)
+
+    def foo_specifc(self):...

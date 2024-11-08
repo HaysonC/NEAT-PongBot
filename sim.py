@@ -117,7 +117,7 @@ def main():
     font = pygame.font.SysFont("comicsans", 30)
 
     # Load the trained genome
-    winner_genome = load_winner_genome("best_genome.pkl")
+    winner_genome = load_winner_genome("7NovGenome.pkl")
     config_path = os.path.join(os.path.dirname(__file__), "config-fc.txt")
     config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                             neat.DefaultSpeciesSet, neat.DefaultStagnation,
