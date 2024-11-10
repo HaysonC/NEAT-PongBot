@@ -19,6 +19,12 @@ python run_agent.py --help
 python run_agent.py --mode train --agent 3 --episodes 100
 ```
 
+Weights:
+
+- `pong_dqn_best.pth` is the most basic, plain weight. Simply hyperparam tuning + experimentation
+
+- `pong_dqn_self_train.pth` added target update frequency, self training and opponent update frequency, and reward normalization + scaling with tanh
+
 ## NEAT: Neuroevolution by Augmented Topology
 
 The NEAT implementation is built on top of the neat-python package. A reference example can be found [here](https://github.com/NirajSawant136/Simple-AI-using-NEAT/tree/master).
