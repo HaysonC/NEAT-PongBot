@@ -10,20 +10,20 @@ import torch.optim as optim
 from playPong import Game, visualize_game_loop
 
 # opponent AI would be a simple chaser for now
-from chaser_ai import chaser_ai as opponent_ai
+# from chaser_ai import chaser_ai as opponent_ai
 
 # Fitness function
 PLAYER_WIN_REWARD = 5
 OPPONENT_WIN_PENALTY = 5
 HIT_REWARD = 1
 MISS_PENALTY = 1
-NOT_MOVING_PENALTY = 0.05
+# NOT_MOVING_PENALTY = 0.05
 
 # Hyperparameters
 LEARNING_RATE = 1e-4
 
 # Memory hyperparameters
-MEMORY_CAPACITY = 1000
+MEMORY_CAPACITY = 10000
 BATCH_SIZE = 64  # Number of transitions sampled for training
 STEPS_TO_UPDATE = 10
 
@@ -35,6 +35,9 @@ GAMMA = 0.999  # Discount factor
 TAU = 0.05   # Soft update parameter
 
 SEED = 42
+
+TARGET_UPDATE_FREQ = 500 # this is in terms of time steps
+OPP_UPDATE_FREQ = 5000 # time steps
 
 torch.manual_seed(SEED)
 random.seed(SEED)
@@ -97,6 +100,9 @@ class DQNAgent():
         self.num_steps_to_update = STEPS_TO_UPDATE
 
         self.Transitions = namedtuple("Transition", ("state", "action", "next_state", "reward"))
+
+        self.reward_mean = 0
+        self.reward_std = 1
     
 
     def select_action(self, state):
@@ -156,9 +162,11 @@ class DQNAgent():
         return state_action_values.mean().item()
 
 
-    def get_reward(self, game, reward, side):
+    def get_reward(self, game):
         res = game.update()
+        r = 0
 
+        '''
         def paddle_not_moving(g: Game, other_paddle = False):
             if not other_paddle:
                 return g.get_paddle().get_move() == 0 or g.get_paddle().get_move() is None or \
@@ -170,26 +178,49 @@ class DQNAgent():
                 (g.get_other_paddle().get_move() == "down" and g.get_other_paddle().frect.pos[1] >= g.get_table_size()[1] - g.get_other_paddle().frect.size[1] - 0.1)
 
         if paddle_not_moving(game):
-            reward -= NOT_MOVING_PENALTY
+            r -= NOT_MOVING_PENALTY
+        '''
 
         # Check for game over conditions
         if res  == -2:
-            reward -= OPPONENT_WIN_PENALTY
-            return False  # End the game
+            r -= OPPONENT_WIN_PENALTY
+            return (False, r)  # End the game
+        
+        if res == 2: 
+            r += PLAYER_WIN_REWARD
+            return (False, r)
 
         if res  == -1:
-            reward -= MISS_PENALTY
+            r -= MISS_PENALTY
 
         if res  == 3:
-            reward += HIT_REWARD
+            r += HIT_REWARD
 
-        return True  # Continue the game
+        return (True, r)  # Continue the game
+    
+    def normalize_reward(self, reward, alpha=0.001):
+        # Update running mean and standard deviation
+        self.reward_mean = (1 - alpha) * self.reward_mean + alpha * reward
+        self.reward_std = (1 - alpha) * self.reward_std + alpha * (reward - self.reward_mean) ** 2
 
+        # Normalize the reward (z-score normalization)
+        normalized_reward = (reward - self.reward_mean) / (self.reward_std ** 0.5)
+
+        # Use tanh to squash the normalized reward to [-1, 1]
+        with torch.no_grad():
+            normalized_reward_tensor = torch.tensor(normalized_reward, dtype=torch.float32).to(self.device)
+            scaled_reward = torch.tanh(normalized_reward_tensor)
+
+        return scaled_reward
 
     def train(self, num_episodes, logging):
         episode_durations = []
         episode_rewards = []
         q_values = []
+
+        opponent_ai = DQNAgent(device)
+        opponent_ai.policy_net.load_state_dict(self.policy_net.state_dict())
+        opponent_ai.target_net.load_state_dict(self.target_net.state_dict())
 
         for i in range(num_episodes):
 
@@ -204,18 +235,20 @@ class DQNAgent():
             # we pack the state as the four desired inputs
             state = torch.tensor([ball.frect.pos[0], ball.frect.pos[1], player_paddle.frect.pos[0], player_paddle.frect.pos[1]], dtype=torch.float32, device=self.device)
 
+            # this loop takes 0.002 second per timesteps
+            # approx each episode is 2000 timesteps
             for t in count():
 
-                opponent_move = opponent_ai(opponent_paddle.frect, player_paddle.frect, ball.frect, game.get_table_size())
-                action = self.select_action(state) # -1, 0, 1 for self
+                opponent_move = opponent_ai.select_action(state)
+                action = self.select_action(state) # -1, 0, 1 for self, steps down ++
 
-                opponent_paddle.set_move(opponent_move)
+                opponent_paddle.set_move(opponent_move.item())
                 player_paddle.set_move(action.item())
 
-                reward = 0
-                run = self.get_reward(game, reward, 1) # this updates the state
-                reward = torch.tensor([reward], device=self.device, dtype=torch.float32)
-                episode_reward += reward.item()
+                run, reward = self.get_reward(game) # this updates the state
+                reward = self.normalize_reward(reward)
+                episode_reward += reward
+                step_reward = torch.tensor([reward], device=self.device, dtype=torch.float32).unsqueeze(0)
 
                 # now we can read the next state
                 obs = torch.tensor([ball.frect.pos[0], ball.frect.pos[1], player_paddle.frect.pos[0], player_paddle.frect.pos[1]], dtype=torch.float32, device=self.device)
@@ -225,7 +258,7 @@ class DQNAgent():
                 else:
                     next_state = obs
 
-                self.memory.push(state, action, next_state, reward)
+                self.memory.push(state, action, next_state, step_reward)
                 state = next_state
 
                 q = self.optimize_model()  # Assume optimize_model returns the Q-value of the chosen action
@@ -233,11 +266,16 @@ class DQNAgent():
                     q_value.append(q)  # Record Q-value for plotting
 
                 # now we use soft update to update the two networks
-                target_net_state_dict = self.target_net.state_dict()
-                policy_net_state_dict = self.policy_net.state_dict()
-                for key in target_net_state_dict:
-                    target_net_state_dict[key] = TAU * policy_net_state_dict[key] + (1 - TAU) * target_net_state_dict[key]
-                self.target_net.load_state_dict(target_net_state_dict)
+                if self.steps_done % TARGET_UPDATE_FREQ == 0:
+                    target_net_state_dict = self.target_net.state_dict()
+                    policy_net_state_dict = self.policy_net.state_dict()
+                    for key in target_net_state_dict:
+                        target_net_state_dict[key] = TAU * policy_net_state_dict[key] + (1 - TAU) * target_net_state_dict[key]
+                    self.target_net.load_state_dict(target_net_state_dict)
+
+                if self.steps_done % OPP_UPDATE_FREQ == 0:
+                    opponent_ai.policy_net.load_state_dict(self.policy_net.state_dict())
+                    opponent_ai.target_net.load_state_dict(self.target_net.state_dict())
 
                 if not run:
                     episode_durations.append(t + 1)
@@ -245,6 +283,8 @@ class DQNAgent():
                     q_values.append(sum(q_value) / len(q_value) if q_value else 0)
                     logging.info(f"Episode {i} completed in {t + 1} steps with reward {episode_reward}")
                     break
+            
+            print(f"Episode {i} completed in {t + 1} steps with reward {episode_reward}")
         
         torch.save(self.policy_net.state_dict(), "models/pong_dqn.pth")
         print("Model saved as pong_dqn.pth")
@@ -313,7 +353,7 @@ if __name__ == "__main__":
     import logging
     logging.basicConfig(filename="training.log", level=logging.INFO)
 
-    episodes = 100 # Adjust as needed
+    episodes = 250 # Adjust as needed
 
     durations, rewards, q_values = agent.train(episodes, logging)
 
