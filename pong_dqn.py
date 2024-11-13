@@ -18,6 +18,7 @@ OPPONENT_WIN_PENALTY = 5
 HIT_REWARD = 1
 MISS_PENALTY = 1
 # NOT_MOVING_PENALTY = 0.05
+PROXIMITY_REWARD = 0.1
 
 # Hyperparameters
 LEARNING_RATE = 1e-4
@@ -181,6 +182,12 @@ class DQNAgent():
             r -= NOT_MOVING_PENALTY
         '''
 
+        # Reward for proximity to the ball
+        ball_y = game.get_ball().frect.pos[1]
+        paddle_y = game.get_paddle().frect.pos[1]
+        distance_to_ball = abs(ball_y - paddle_y)
+        r += max(0, (1 - distance_to_ball / game.get_table_size()[1])) * PROXIMITY_REWARD
+
         # Check for game over conditions
         if res  == -2:
             r -= OPPONENT_WIN_PENALTY
@@ -198,7 +205,7 @@ class DQNAgent():
 
         return (True, r)  # Continue the game
     
-    def normalize_reward(self, reward, alpha=0.001):
+    def normalize_reward(self, reward, alpha=0.01):
         # Update running mean and standard deviation
         self.reward_mean = (1 - alpha) * self.reward_mean + alpha * reward
         self.reward_std = (1 - alpha) * self.reward_std + alpha * (reward - self.reward_mean) ** 2
@@ -292,7 +299,7 @@ class DQNAgent():
         return episode_durations, episode_rewards, q_values
 
 
-    def load_weights(self, path="models/pong_dqn.pth") -> None:
+    def load_weights(self, path="models/pong_dqn_best.pth") -> None:
         self.policy_net.load_state_dict(torch.load(path, weights_only=True))
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
@@ -310,8 +317,22 @@ def pong_ai(paddle_frect, other_paddle_frect, ball_frect, table_size):
     return "up" or "down", depending on which way the paddle should go to
     '''
 
-    output = agent.inference((ball_frect.pos[0], ball_frect.pos[1], 
-                              paddle_frect.pos[0], paddle_frect.pos[1]))
+    # If the agent's paddle is on the right side, flip the x-coordinates
+
+    paddle_x = paddle_frect.pos[0]
+
+    if paddle_frect.pos[0] > table_size[0] / 2:
+        paddle_x = table_size[0] - paddle_x - paddle_frect.size[0]
+
+    ball_x = ball_frect.pos[0]
+
+    # Keep y-coordinates the same
+    ball_y = ball_frect.pos[1]
+    paddle_y = other_paddle_frect.pos[1]
+
+    # Pass transformed coordinates to the agent
+    output = agent.inference((ball_x, ball_y, paddle_x, paddle_y))
+        
     return None if output == 0 else "up" if output == 1 else "down"
 
 

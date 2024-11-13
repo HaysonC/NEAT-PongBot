@@ -4,12 +4,8 @@ from typing import Callable, Optional
 import pygame
 from typing_extensions import override
 
-import neat_inference
-from chaser_ai import chaser_ai
-
 from PongAIvAi import fRect, Ball, Paddle, render
-from neat_inference import pong_ai2, pong_ai
-
+from chaser_ai import chaser_ai
 
 class Game(object):
     def __init__(self,
@@ -408,6 +404,9 @@ def random_play(game_instance: Game, n:int) -> float:
 
 
 if __name__ == '__main__':
-    # import neat_inference
-    visualize_game_loop(Game(),pong_ai,HumanPlayer(),
+
+    from neat_inference import pong_ai as neat_ai, pong_ai2 as neat_ai2
+    from pong_dqn import pong_ai as dqn_ai
+
+    visualize_game_loop(Game(), neat_ai2, dqn_ai,
                         tickTime=0.01)
