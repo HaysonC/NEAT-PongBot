@@ -76,8 +76,9 @@ WINRATE_NOT_PENALIZE = 0.8
 # Evaluation Constants
 MATCHES_PER_GENOME = 6
 AMOUNT_OF_CHASERS = 5
-GENERATION = 40
+GENERATION = 100
 NUM_POP = 70
+print("Estimated time for num pop: ", GENERATION * NUM_POP * MATCHES_PER_GENOME)
 
 CONFIG_PATH = "config-fc.txt"
 p = neat.Population(neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
@@ -193,13 +194,13 @@ def simulate_match(genome: neat.DefaultGenome | dummy_neat,
         opponent_paddle = game.get_other_paddle()
 
 
-        player_output = net.activate((ball.frect.pos[0],
+        player_output = net.activate((ball.frect.pos[0] +  game.get_table_size()[0]/2,
                                        ball.frect.pos[1],
                                        player_paddle.frect.pos[0],
                                        player_paddle.frect.pos[1]
                                        ))
 
-        opponent_output = opponent_net.activate((ball.frect.pos[0],
+        opponent_output = opponent_net.activate((ball.frect.pos[0] - game.get_table_size()[0]/2,
                                                  ball.frect.pos[1],
                                                  opponent_paddle.frect.pos[0],
                                                  opponent_paddle.frect.pos[1]

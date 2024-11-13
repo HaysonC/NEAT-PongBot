@@ -2,14 +2,13 @@
 from typing import Callable
 
 import neat
-
 from PongAIvAi import fRect
 
 class dummy_neat(neat.DefaultGenome):
     def __init__(self, move_getter: Callable,
-                 paddle_size: tuple = (10, 50),
-                 ball_size: tuple = (10, 10),
-                 table_size: tuple = (400, 400)) -> None:
+                 paddle_size: tuple = (10, 70),
+                 ball_size: tuple = (12, 12),
+                 table_size: tuple = (400, 480)) -> None:
         """
         :param move_getter: a function that returns the move of the agent, so it would be the other type of agent
         :param paddle_size: the size of the paddle
@@ -27,9 +26,9 @@ class dummy_neat(neat.DefaultGenome):
     # dummy net class
     class _net:
         def __init__(self, move_getter: Callable,
-                     paddle_size: tuple = (10, 50),
-                     ball_size: tuple = (10, 10),
-                     table_size: tuple = (400, 400)) -> None:
+                     paddle_size: tuple = (10, 70),
+                     ball_size: tuple = (15, 15),
+                     table_size: tuple = (400, 480)) -> None:
             """
             Dummy net class for the dummy neat class
 

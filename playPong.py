@@ -4,9 +4,12 @@ from typing import Callable, Optional
 import pygame
 from typing_extensions import override
 
+import neat_inference
 from chaser_ai import chaser_ai
 
 from PongAIvAi import fRect, Ball, Paddle, render
+from neat_inference import pong_ai2, pong_ai
+
 
 class Game(object):
     def __init__(self,
@@ -173,13 +176,25 @@ class Game(object):
             )
         return ret
 
-    def get_game_state(self) -> tuple[fRect, fRect, fRect, tuple[int, int]]:
+    def get_game_state(self, side: 1 |- 1 = 1) -> tuple[fRect, fRect, fRect, tuple[int, int]]:
         """
         Get the current game state.
 
         :return: Tuple containing the paddle, other paddle, ball, and table size
         """
-        return self._paddle.frect, self._other_paddle.frect, self._ball.frect, self._table_size
+        if side == -1:
+            ball = self._Ball(
+                self._table_size,
+                self._ball_size,
+                self.paddle_bounce,
+                self.wall_bounce,
+                self.dust_error,
+                self.init_speed_mag
+            )
+            ball.frect.pos = (self._table_size[0] - self._ball.frect.pos[0], self._ball.frect.pos[1])
+            return self._other_paddle.frect, self._paddle.frect, ball.frect, self._table_size
+        else:
+            return self._paddle.frect, self._other_paddle.frect, self._ball.frect, self._table_size
 
     class _Paddle(Paddle):
         def __init__(self, pos: tuple[int, int], size: tuple[int, int], speed: int, max_angle: float, facing: int, timeout: float):
@@ -208,10 +223,16 @@ class Game(object):
             """
             Set the move for the paddle.
 
-            :param move: "up" or "down", or -1, 0, 1 (for AI)
+            :param move: "up" or "down", or -1 (d), 0, 1 (u) (for AI)
             :return: None
             """
-            move = "up" if move == 1 else "down" if move == -1 else move
+            if move == -1:
+                move = "down"
+            elif move == 1:
+                move = "up"
+            elif move == 0:
+                move = None
+
             self.move_getter = lambda _1, _2, _3, _4: move
 
         def get_move(self) -> Optional[str]:
@@ -273,6 +294,17 @@ class Game(object):
         :return: Tuple containing the table size (width, height)
         """
         return self._table_size
+
+    def render(self):
+        """
+        Render the game state.
+
+        :return: None
+        """
+        from PongAIvAi import render
+        render(pygame.display.set_mode(self._table_size),[self._paddle, self._other_paddle], self._ball, self.score, self._table_size)
+
+
 pygame.init()
 class HumanPlayer():
     def __init__(self, up: str = "UP", down: str = "DOWN"):
@@ -333,8 +365,8 @@ def visualize_game_loop(game_instance: Game,
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-        game_instance.play(player1(*game_instance.get_game_state()))
-        game_instance.other_play(player2(*game_instance.get_game_state()))
+        game_instance.play(player1(*game_instance.get_game_state(side = 1)))
+        game_instance.other_play(player2(*game_instance.get_game_state(side = -1)))
         if test_reward:
             from neat_train import update_fitness
             class _genome:
@@ -376,6 +408,6 @@ def random_play(game_instance: Game, n:int) -> float:
 
 
 if __name__ == '__main__':
-    import neat_inference
-    import pong_dqn
-    visualize_game_loop(Game(), pong_dqn.pong_ai, neat_inference.pong_ai2, tickTime=0.01)
+    # import neat_inference
+    visualize_game_loop(Game(),pong_ai,HumanPlayer(),
+                        tickTime=0.01)
