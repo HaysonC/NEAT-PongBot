@@ -2,7 +2,7 @@ import neat, pickle, os
 import numpy as np
 
 local_dir = os.path.dirname(__file__)
-MODEL_PATH = "models/best_genome.pkl"
+MODEL_PATH = "models/first_genome_worked.pkl"
 config_path = os.path.join(local_dir, "config-fc.txt")
 
 def load_model(config_path=os.path.join(local_dir, "config-fc.txt"), model_path=MODEL_PATH) -> neat.nn.FeedForwardNetwork:
