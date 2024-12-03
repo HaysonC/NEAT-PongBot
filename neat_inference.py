@@ -4,7 +4,7 @@ import numpy as np
 from PongAIvAi import fRect, init_game
 local_dir = os.path.dirname(__file__)
 # current
-MODEL_PATH = "models/train_best.pkl"
+MODEL_PATH = "models/first_genome_worked.pkl"
 MODEL_PATH2 = "models/train_best.pkl"
 config_path = os.path.join(local_dir, "config-fc.txt")
 
@@ -52,12 +52,12 @@ def pong_ai(paddle_frect: fRect,
     :return: The final output of the AI, either "up", "down", or None
     """
     if mod == 1:
-        output = model.activate((ball_frect.pos[0] - paddle_frect.pos[0]
+        output = model.activate((abs(ball_frect.pos[0] - paddle_frect.pos[0])
                                  , ball_frect.pos[1],
                           paddle_frect.pos[0], paddle_frect.pos[1],
                             ))
     else:
-        output = model2.activate((ball_frect.pos[0] - paddle_frect.pos[0]
+        output = model2.activate((abs(ball_frect.pos[0] - paddle_frect.pos[0])
                                   ,ball_frect.pos[1],
                           paddle_frect.pos[0], paddle_frect.pos[1],
                             ))

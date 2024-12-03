@@ -421,5 +421,5 @@ def cheater(paddle_frect: fRect, other_paddle_frect: fRect, ball_frect: fRect, t
 
 if __name__ == '__main__':
     # import neat_inference
-    visualize_game_loop(Game(),pong_ai, pong_ai,
+    visualize_game_loop(Game(), pong_ai2,pong_ai,
                         tickTime=0.5/60)
