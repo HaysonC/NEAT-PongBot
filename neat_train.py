@@ -65,19 +65,18 @@ MAX_SCORE = 5
 
 
 # Fitness function constants
-HIT_REWARD = 0.5
-MISS_PENALTY = 0.7
-OPPONENT_WIN_PENALTY = 0
-PLAYER_WIN_REWARD = 0
-NOT_MOVING_PENALTY = 0.07
-WINRATE_NOT_PENALIZE = 0.8
+HIT_REWARD = 0.1
+MISS_PENALTY = 1.2
+OPPONENT_WIN_PENALTY = 1.5
+PLAYER_WIN_REWARD = 0.2
+NOT_MOVING_PENALTY = 0.00
+WINRATE_NOT_PENALIZE = 0.3
 
 
 # Evaluation Constants
-MATCHES_PER_GENOME = 6
-AMOUNT_OF_CHASERS = 5
-GENERATION = 100
-NUM_POP = 70
+MATCHES_PER_GENOME = 8
+GENERATION = 1000
+NUM_POP = 30
 print("Estimated time for num pop: ", GENERATION * NUM_POP * MATCHES_PER_GENOME)
 
 CONFIG_PATH = "config-fc.txt"
@@ -115,10 +114,11 @@ def update_fitness(game: Game,
             (paddle.get_move() == "down" and paddle.frect.pos[1] >= g.get_table_size()[1] - paddle.frect.size[1] - 0.1)
 
     if (l := analytics.get_latest("winRate")) is None or l < WINRATE_NOT_PENALIZE:
+        p =  NOT_MOVING_PENALTY * (1-l/WINRATE_NOT_PENALIZE)
         if paddle_not_moving(game):
-            genome.fitness -= NOT_MOVING_PENALTY
+            genome.fitness -= p
         if paddle_not_moving(game, other_paddle=True):
-            opponent_genome.fitness -= NOT_MOVING_PENALTY
+            opponent_genome.fitness -= p
 
     # Check for game over conditions
     if res  == -2:
@@ -137,7 +137,7 @@ def update_fitness(game: Game,
     if res  == -1:
         genome.fitness -= MISS_PENALTY
     elif res  == 1:
-        opponent_genome.fitness += MISS_PENALTY
+        opponent_genome.fitness -= MISS_PENALTY
 
     if res  == 3:
         genome.fitness += HIT_REWARD
@@ -171,9 +171,10 @@ def simulate_match(genome: neat.DefaultGenome | dummy_neat,
     if isinstance(opponent_genome, dummy_neat):
         opponent_net = opponent_genome.net
     elif isinstance(opponent_genome, neat.DefaultGenome):
-        opponent_net = neat.nn.FeedForwardNetwork.create(genome, config)
+        opponent_net = neat.nn.FeedForwardNetwork.create(opponent_genome, config)
     else:
         raise ValueError("Invalid genome type")
+
     # Initialize game
     game = Game(
         paddle_size=(PADDLE_WIDTH, PADDLE_HEIGHT),
@@ -194,13 +195,13 @@ def simulate_match(genome: neat.DefaultGenome | dummy_neat,
         opponent_paddle = game.get_other_paddle()
 
 
-        player_output = net.activate((ball.frect.pos[0] +  game.get_table_size()[0]/2,
+        player_output = net.activate((ball.frect.pos[0] - player_paddle.frect.pos[0],
                                        ball.frect.pos[1],
                                        player_paddle.frect.pos[0],
                                        player_paddle.frect.pos[1]
                                        ))
 
-        opponent_output = opponent_net.activate((ball.frect.pos[0] - game.get_table_size()[0]/2,
+        opponent_output = opponent_net.activate((opponent_paddle.frect.pos[0] - ball.frect.pos[0],
                                                  ball.frect.pos[1],
                                                  opponent_paddle.frect.pos[0],
                                                  opponent_paddle.frect.pos[1]
@@ -213,8 +214,6 @@ def simulate_match(genome: neat.DefaultGenome | dummy_neat,
 
         # Update game state and fitness
         should_continue = update_fitness(game, genome, opponent_genome)
-            # render
-
 
 
 
@@ -257,6 +256,9 @@ def eval_genomes(genomes: list[tuple[int, neat.genome]], config: neat.config.Con
     # remove all dummy agents from the list of genomes
     genomes = [(genome_id, genome) for genome_id, genome in genomes if not isinstance(genome, dummy_neat)]
     best = max(genomes, key=lambda x: x[1].fitness)
+    with open("models/train_best.pkl", "wb") as f:
+        pickle.dump(best[1], f)
+
     # update the analytics
     analytics.append({
         "winRate": analytics.get_winRate(2, n),
@@ -331,17 +333,19 @@ def run(config_path: str, show: bool = False, useLastRun = False) -> None:
         # Load the winner's neural network
         neat_inference.model = neat.nn.FeedForwardNetwork.create(winner, config)
 
-        # Start the visualization game loop
-        visualize_game_loop(game, player1=neat_inference.pong_ai, player2=HumanPlayer())
-
-        # Visualize the winning genome as a graph
-        # analytics.visualize_genome(winner)
-
         analytics.plot("winRate")
         analytics.plot("time")
         analytics.plot("timesForEachGen")
 
         analytics.save_to_file("analytics.json")
+
+        # Start the visualization game loop
+        visualize_game_loop(game, player1=neat_inference.pong_ai, player2=HumanPlayer(), tickTime=0.01)
+
+        # Visualize the winning genome as a graph
+        # analytics.visualize_genome(winner)
+
+
 
 
 analytics = Neat_Analytics(NUM_POP)

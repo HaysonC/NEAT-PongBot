@@ -51,19 +51,19 @@ class dummy_neat(neat.DefaultGenome):
             :param l: the input to the dummy neural network
             :return: the output of the dummy neural network
             """
-
             _ball = fRect(pos=(l[0], l[1]), size=self._ball_size)
             _paddle = fRect(pos=(l[2], l[3]), size=self._paddle_size)
             _other_paddle = fRect(pos=(l[2], l[3]), size=self._paddle_size)
             move = self.move_getter(_paddle, _other_paddle, _ball, self._table_size)
             if move is None:
-                return [0, 1, 0]
+                r = [0, 1, 0]
             elif move == "up":
-                return [0, 0, 1]
-            elif move == "down":
-                return [1, 0, 0]
+                r = [0, 0, 1]
             else:
-                return [0, 1, 0]
+                r = [1, 0, 0]
+
+            return r
+
 
         def __str__(self):
             return "Dummy net"

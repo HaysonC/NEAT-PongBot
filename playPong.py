@@ -4,8 +4,12 @@ from typing import Callable, Optional
 import pygame
 from typing_extensions import override
 
-from PongAIvAi import fRect, Ball, Paddle, render
+import neat_inference
 from chaser_ai import chaser_ai
+
+from PongAIvAi import fRect, Ball, Paddle, render
+from neat_inference import pong_ai2, pong_ai
+
 
 class Game(object):
     def __init__(self,
@@ -133,10 +137,10 @@ class Game(object):
             ball = self._ball.move([self._paddle, self._other_paddle], self._table_size, 1)
         ret = 0
         # check for hitting the ball
-        if ball != 1:
+        if ball != 0:
             ret = 3 * ball
         # Check for scoring
-        if self._ball.frect.pos[0] + self._ball.size[0] / 2 < 0:
+        if self._ball.frect.pos[0] + self._ball.size[0] / 2 <= 0.1:
             ret = -1
             self.score[1] += 1
             self._ball = self._Ball(
@@ -147,7 +151,7 @@ class Game(object):
                 self.dust_error,
                 self.init_speed_mag
             )
-        elif self._ball.frect.pos[0] + self._ball.size[0] / 2 >= self._table_size[0]:
+        elif self._ball.frect.pos[0] + self._ball.size[0] / 2 >= self._table_size[0] - 0.1:
             ret = 1
             self.score[0] += 1
             self._ball = self._Ball(
@@ -245,7 +249,7 @@ class Game(object):
             super().__init__(table_size, size, paddle_bounce, wall_bounce, dust_error, init_speed_mag)
 
         @override
-        def move(self, paddles
+        def move(self, paddles: list['Game._Paddle']
                  , table_size,
                  move_factor) -> 1 | 0 | -1:
             super().move(paddles, table_size, move_factor)
@@ -401,12 +405,21 @@ def random_play(game_instance: Game, n:int) -> float:
     timeTaken = time.time() - prev
     return timeTaken
 
+def cheater(paddle_frect: fRect, other_paddle_frect: fRect, ball_frect: fRect, table_size: tuple[int, int]) -> str:
+    """
+    Cheater AI that always wins by exploiting paddle frect is mutable.
+    """
+    if ball_frect.pos[0] < table_size[0] // 2:
+        ball_frect.pos = (table_size[0] - ball_frect.pos[0], ball_frect.pos[1])
+    if paddle_frect.pos[1] + paddle_frect.size[1] / 2 < ball_frect.pos[1] + ball_frect.size[1] / 2:
+        return "down"
+    else:
+        return "up"
+
+
 
 
 if __name__ == '__main__':
-
-    from neat_inference import pong_ai as neat_ai, pong_ai2 as neat_ai2
-    from pong_dqn import pong_ai as dqn_ai
-
-    visualize_game_loop(Game(), neat_ai2, dqn_ai,
-                        tickTime=0.01)
+    # import neat_inference
+    visualize_game_loop(Game(),pong_ai, pong_ai,
+                        tickTime=0.5/60)

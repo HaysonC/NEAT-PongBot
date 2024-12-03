@@ -3,9 +3,9 @@ import numpy as np
 
 from PongAIvAi import fRect, init_game
 local_dir = os.path.dirname(__file__)
-
-MODEL_PATH = "models/best_genome.pkl"
-MODEL_PATH2 = "models/best_genome.pkl"
+# current
+MODEL_PATH = "models/train_best.pkl"
+MODEL_PATH2 = "models/train_best.pkl"
 config_path = os.path.join(local_dir, "config-fc.txt")
 
 def load_model(config_path: str =os.path.join(local_dir, "config-fc.txt"), model_path:str = MODEL_PATH) -> neat.nn.FeedForwardNetwork:
@@ -52,11 +52,13 @@ def pong_ai(paddle_frect: fRect,
     :return: The final output of the AI, either "up", "down", or None
     """
     if mod == 1:
-        output = model.activate((ball_frect.pos[0], ball_frect.pos[1],
+        output = model.activate((ball_frect.pos[0] - paddle_frect.pos[0]
+                                 , ball_frect.pos[1],
                           paddle_frect.pos[0], paddle_frect.pos[1],
                             ))
     else:
-        output = model2.activate((ball_frect.pos[0], ball_frect.pos[1],
+        output = model2.activate((ball_frect.pos[0] - paddle_frect.pos[0]
+                                  ,ball_frect.pos[1],
                           paddle_frect.pos[0], paddle_frect.pos[1],
                             ))
     op = np.argmax(output) - 1

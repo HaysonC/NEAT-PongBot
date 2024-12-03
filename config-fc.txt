@@ -8,7 +8,7 @@ reset_on_extinction   = True
 [DefaultGenome]
 # Activation Function Parameters
 activation_default      = tanh
-activation_mutate_rate  = 0.1
+activation_mutate_rate  = 0.05
 activation_options      = tanh relu sigmoid cube
 
 # Aggregation Function Parameters
@@ -30,8 +30,8 @@ compatibility_disjoint_coefficient = 1.2
 compatibility_weight_coefficient   = 0.7
 
 # Connection Mutation Rates
-conn_add_prob           = 0.4
-conn_delete_prob        = 0.3
+conn_add_prob           = 0.2
+conn_delete_prob        = 0.18
 
 # Connection Enable Mutation
 enabled_default         = True
@@ -64,9 +64,9 @@ weight_init_mean        = 0.0
 weight_init_stdev       = 1.0
 weight_max_value        = 10.0
 weight_min_value        = -10.0
-weight_mutate_power     = 0.5
-weight_mutate_rate      = 0.2
-weight_replace_rate     = 0.3
+weight_mutate_power     = 0.02
+weight_mutate_rate      = 0.05
+weight_replace_rate     = 0.03
 
 [DefaultSpeciesSet]
 # Species Set Parameters
