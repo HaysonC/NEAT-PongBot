@@ -4,8 +4,7 @@ from typing import Callable, Optional
 import pygame
 from typing_extensions import override
 
-import neat_inference
-from chaser_ai import chaser_ai
+from chaser_ai import pong_ai as chaser_ai
 
 from PongAIvAi import fRect, Ball, Paddle, render
 from neat_inference import pong_ai2, pong_ai
@@ -421,5 +420,5 @@ def cheater(paddle_frect: fRect, other_paddle_frect: fRect, ball_frect: fRect, t
 
 if __name__ == '__main__':
     # import neat_inference
-    visualize_game_loop(Game(), pong_ai2,pong_ai,
+    visualize_game_loop(Game(), chaser_ai, pong_ai,
                         tickTime=0.5/60)

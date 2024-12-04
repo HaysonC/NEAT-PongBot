@@ -59,5 +59,6 @@ class chaser_dummy_neat(dummy_neat):
         :param table_size: table_size[0], table_size[1] are the dimensions of the table, along the x and the y axis respectively
         :return: "up" or "down", depending on which way the paddle should go to
         """
-        return chaser_ai(paddle_frect, other_paddle_frect, ball_frect, table_size)
+        return pong_ai(paddle_frect, other_paddle_frect, ball_frect, table_size)
+
 
