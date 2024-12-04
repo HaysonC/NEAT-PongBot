@@ -5,7 +5,7 @@ import neat
 import numpy as np
 
 local_dir = os.path.dirname(__file__)
-MODEL_PATH = "models/first_genome_worked.pkl"
+MODEL_PATH = "models/train_best.pkl"
 config_path = os.path.join(local_dir, "config-fc.txt")
 
 def load_model(config_path=os.path.join(local_dir, "config-fc.txt"), model_path=MODEL_PATH) -> neat.nn.FeedForwardNetwork:
@@ -47,9 +47,9 @@ def pong_ai(paddle_frect,
 
     :return: The final output of the AI, either "up", "down", or None
     """
-    output = model.activate((abs(ball_frect.pos[0] - paddle_frect.pos[0])
+    output = model.activate((ball_frect.pos[0] - paddle_frect.pos[0]
                                 , ball_frect.pos[1],
                         paddle_frect.pos[0], paddle_frect.pos[1],
-                        ))
+    ))
     op = np.argmax(output) - 1
     return None if op == 0 else "up" if op == 1 else "down"
